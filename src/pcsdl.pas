@@ -154,6 +154,9 @@ var
   SDL_SetTextureAlphaMod: function(tex: Pointer; alpha: Byte): LongInt; cdecl;
   SDL_SetTextureBlendMode: function(tex: Pointer; mode: LongInt): LongInt; cdecl;
   SDL_FreeSurface: procedure(surf: PSDL_Surface); cdecl;
+  SDL_CreateRGBSurfaceFrom: function(pixels: Pointer; w, h, depth, pitch: LongInt;
+    rmask, gmask, bmask, amask: LongWord): PSDL_Surface; cdecl;
+  SDL_SetWindowIcon: procedure(win: Pointer; icon: PSDL_Surface); cdecl;
   SDL_PollEvent: function(var e: TSDL_Event): LongInt; cdecl;
   SDL_WaitEventTimeout: function(var e: TSDL_Event; ms: LongInt): LongInt; cdecl;
   SDL_StartTextInput: procedure; cdecl;
@@ -348,6 +351,8 @@ begin
   Pointer(SDL_SetTextureAlphaMod) := Sym(LibSDL, 'SDL_SetTextureAlphaMod');
   Pointer(SDL_SetTextureBlendMode) := Sym(LibSDL, 'SDL_SetTextureBlendMode');
   Pointer(SDL_FreeSurface) := Sym(LibSDL, 'SDL_FreeSurface');
+  Pointer(SDL_CreateRGBSurfaceFrom) := Sym(LibSDL, 'SDL_CreateRGBSurfaceFrom');
+  Pointer(SDL_SetWindowIcon) := Sym(LibSDL, 'SDL_SetWindowIcon');
   Pointer(SDL_PollEvent) := Sym(LibSDL, 'SDL_PollEvent');
   Pointer(SDL_WaitEventTimeout) := Sym(LibSDL, 'SDL_WaitEventTimeout');
   Pointer(SDL_StartTextInput) := Sym(LibSDL, 'SDL_StartTextInput');

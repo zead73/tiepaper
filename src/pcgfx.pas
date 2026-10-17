@@ -132,6 +132,32 @@ begin
   Resized;
 end;
 
+{ The window icon is 128x128 straight-alpha RGBA, compiled into the program as the
+  ICON128 resource (see assets/).  A missing or odd-sized resource just means no icon. }
+procedure SetWindowIconFromResource(win: Pointer);
+const
+  IconPx = 128;
+var
+  rs: TResourceStream;
+  surf: PSDL_Surface;
+begin
+  try
+    rs := TResourceStream.Create(HInstance, 'ICON128', PChar(10));  { RT_RCDATA }
+  except
+    Exit;
+  end;
+  try
+    if rs.Size <> IconPx * IconPx * 4 then Exit;
+    surf := SDL_CreateRGBSurfaceFrom(rs.Memory, IconPx, IconPx, 32, IconPx * 4,
+      $000000FF, $0000FF00, $00FF0000, $FF000000);
+    if surf = nil then Exit;
+    SDL_SetWindowIcon(win, surf);  { SDL copies the pixels }
+    SDL_FreeSurface(surf);
+  finally
+    rs.Free;
+  end;
+end;
+
 function TGfx.Init(const title: string; const s: TSettings): string;
 var
   i: Integer;
@@ -147,9 +173,13 @@ begin
   if FontFiles[0] = '' then
     Exit('No monospaced TTF font found. Put LiberationMono-Regular.ttf (and -Bold, -Italic, -BoldItalic) in the fonts folder next to the program.');
   SDL_SetHint('SDL_RENDER_SCALE_QUALITY', '0');
+  { how the desktop matches the window to tiepaper.desktop (and so to its menu icon) }
+  SDL_SetHint('SDL_VIDEO_X11_WMCLASS', 'tiepaper');
+  SDL_SetHint('SDL_APP_ID', 'tiepaper');
   Win := SDL_CreateWindow(PAnsiChar(title), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
     s.WinW, s.WinH, SDL_WINDOW_RESIZABLE);
   if Win = nil then Exit('Cannot create the window: ' + string(SDL_GetError()));
+  SetWindowIconFromResource(Win);
   Ren := SDL_CreateRenderer(Win, -1, 0);
   if Ren = nil then Ren := SDL_CreateRenderer(Win, -1, SDL_RENDERER_SOFTWARE);
   if Ren = nil then Exit('Cannot create the renderer: ' + string(SDL_GetError()));

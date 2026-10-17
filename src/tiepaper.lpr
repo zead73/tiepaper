@@ -9,6 +9,7 @@ program tiepaper;
 
 {$mode objfpc}{$H+}
 {$IFDEF WINDOWS}{$APPTYPE GUI}{$ENDIF}
+{$R ../assets/tiepaper.res}  { the icon: exe icon on Windows, window icon everywhere }
 
 uses
   {$IFDEF UNIX}cwstring,{$ENDIF}

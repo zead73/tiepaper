@@ -94,6 +94,14 @@ name in File Options (F4); a C64-style font works well.
 
 Settings live in `~/.config/tiepaper/tiepaper.ini` (the tiepaper folder under your app-data folder on Windows). The first run copies settings over from the old `paperclip` folder if there is one.
 
+## Icon and menu entry
+
+The icon (`assets/tiepaper.svg`) is compiled into the program: it is the icon of `tiepaper.exe`
+on Windows and the window icon on both systems. On Linux, `./install-desktop.sh` adds TiePaper
+with its icon to your application menu (`--uninstall` removes it again). `assets/make-icons.sh`
+regenerates the PNG, ICO and resource files from the SVGs; the results are committed, so
+building needs none of its tools.
+
 ## Tests
 
 ```
@@ -116,3 +124,4 @@ The GUI tests replay scripts from `tests/scripts/` (`key ctrl+r`, `text hello`, 
 | `src/pcsearch.pas`, `src/pccolumns.pas`, `src/pcspell.pas` | Search patterns; column functions and arithmetic; the system spell checker |
 | `src/pcsdl.pas`, `src/pcgfx.pas` | Run-time SDL2 bindings; the character-cell display |
 | `src/pcapp*.inc`, `src/pcapp.pas` | The editor: input, drawing, editing, blocks, search, files, screens |
+| `assets/` | The icon: SVG sources, PNG/ICO files, the compiled resource, `.desktop` file |
