@@ -1,0 +1,8 @@
+size 900 600
+text \t=Yours truly,
+key return
+text Letter ends: 
+key escape
+text t
+dump build/test-out/instant.txt
+quit

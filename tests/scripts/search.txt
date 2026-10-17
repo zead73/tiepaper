@@ -1,0 +1,20 @@
+size 900 600
+text The cat sat on the mat. Then the cat left.
+key return
+text catalogue of cats
+key ctrl+home
+key ctrl+f
+text [cat]
+key return
+key ctrl+h
+key ctrl+home
+key ctrl+shift+2
+text [cat]
+key return
+text dog
+key return
+text n
+text n
+text n
+dump build/test-out/search.txt
+quit

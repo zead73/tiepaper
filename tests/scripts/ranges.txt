@@ -1,0 +1,26 @@
+size 900 600
+text one
+key return
+text two
+key return
+text three
+key return
+text four
+key return
+text five
+key up
+key up
+key up
+key ctrl+r
+key down
+key return
+key down
+key down
+key ctrl+c
+text 2
+key return
+dump build/test-out/ranges_copy.txt
+key ctrl+home
+key ctrl+t
+dump build/test-out/ranges_transfer.txt
+quit

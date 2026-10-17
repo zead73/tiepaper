@@ -1,0 +1,28 @@
+size 900 600
+text Chuck  3
+key return
+text Ben    9
+key return
+text Al     1
+key return
+text 
+key ctrl+home
+key ctrl+shift+c
+key down
+key down
+key right
+key right
+key right
+key right
+key right
+key right
+key right
+key return
+key ctrl+shift+a
+text 2
+key return
+text n
+text y
+text y
+dump build/test-out/columns.txt
+quit

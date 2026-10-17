@@ -1,0 +1,14 @@
+size 900 600
+text           
+key ctrl+n
+key return
+key tab
+text 128.45
+key return
+key tab
+text 67.890
+key return
+key tab
+text -5
+dump build/test-out/numeric.txt
+quit

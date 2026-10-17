@@ -1,0 +1,15 @@
+# select all, copy, paste; wrap a selection in bold; Shift+End
+size 900 500
+text copy me
+key alt+a
+key alt+c
+key end
+key alt+v
+dump build/test-out/select_clip_a.txt
+key return
+text one two three
+key home
+key shift+end
+key alt+b
+dump build/test-out/select_clip_b.txt
+quit

@@ -1,0 +1,18 @@
+size 900 600
+open build/test-out/chain1.pcl
+key ctrl+shift+2
+text cat
+key return
+text dog
+key return
+text n
+text n
+text y
+text n
+key return
+dump build/test-out/chain_end.txt
+open build/test-out/chain1.pcl
+dump build/test-out/chain_a.txt
+open build/test-out/chain2.pcl
+dump build/test-out/chain_b.txt
+quit

@@ -1,0 +1,19 @@
+size 900 600
+text cat one cat two cat three
+key return
+text cat four
+key ctrl+home
+key ctrl+shift+2
+text cat
+key return
+text hamster
+key return
+text n
+text y
+text n
+text y
+text y
+text n
+text n
+dump build/test-out/replace.txt
+quit

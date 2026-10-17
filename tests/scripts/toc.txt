@@ -1,0 +1,17 @@
+size 900 600
+text \tf:build/test-out/toc_out
+key return
+text \tb Introduction
+key return
+text Some body text.
+key return
+text \fp
+key return
+text \tb Second Chapter
+key return
+text More body text.
+key ctrl+v
+key escape
+open build/test-out/toc_out.pcl
+dump build/test-out/toc.txt
+quit

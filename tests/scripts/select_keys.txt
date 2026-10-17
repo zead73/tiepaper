@@ -1,0 +1,27 @@
+# Shift+arrows: replace a selection, delete across paragraphs, undo as one step
+size 900 500
+text hello world
+key shift+left
+key shift+left
+key shift+left
+key shift+left
+key shift+left
+text X
+dump build/test-out/select_keys_a.txt
+key return
+text alpha
+key return
+text beta
+key return
+text gamma
+key ctrl+home
+key down
+key right
+key right
+key shift+down
+key shift+down
+key backspace
+dump build/test-out/select_keys_b.txt
+key ctrl+z
+dump build/test-out/select_keys_c.txt
+quit

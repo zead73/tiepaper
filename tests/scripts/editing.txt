@@ -1,0 +1,25 @@
+# typing, splitting, joining, overwrite, undo
+size 900 600
+text first line
+key return
+text second line
+key return
+text third
+key up
+key home
+key delete
+text S
+key down
+key end
+key backspace
+key backspace
+text XY
+key left
+key left
+key return
+key insert
+text ZZ
+key insert
+key ctrl+z
+dump build/test-out/editing.txt
+quit

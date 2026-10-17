@@ -1,0 +1,20 @@
+# tap-Ctrl command mode, mouse clicks and the Escape prefix
+size 900 600
+text hello world
+ctap
+text z
+dump build/test-out/ctrlmode_a.txt
+text again
+key left
+key left
+click 14 63
+text X
+dump build/test-out/ctrlmode_b.txt
+key end
+key escape
+text (
+text bold
+key escape
+text )
+dump build/test-out/ctrlmode_c.txt
+quit

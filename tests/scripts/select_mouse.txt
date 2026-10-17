@@ -1,0 +1,13 @@
+# mouse drag selects, typing replaces; double-click selects a word
+size 900 500
+text hello brave new world
+click 87 63
+drag 147 63
+release
+text X
+dump build/test-out/select_mouse_a.txt
+dclick 123 63
+release
+key alt+i
+dump build/test-out/select_mouse_b.txt
+quit

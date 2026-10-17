@@ -1,0 +1,10 @@
+size 900 600
+text unsaved text
+key ctrl+shift+x
+key escape
+text still here
+dump build/test-out/quit_a.txt
+key ctrl+shift+x
+text d
+dump build/test-out/quit_b.txt
+quit

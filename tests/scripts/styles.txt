@@ -1,0 +1,27 @@
+# Alt+B / Alt+I / Alt+U toggles, Ctrl+B, and wrapping a phrase
+size 900 400
+text Plain 
+key alt+b
+text bold
+key alt+b
+text  
+key alt+i
+text italic
+key alt+i
+text  
+key alt+u
+text under
+key alt+u
+text  and 
+key ctrl+b
+text more bold, still bold
+key return
+text second paragraph, bold carries on
+key ctrl+home
+key ctrl+p
+text w
+key return
+key alt+i
+dump build/test-out/styles.txt
+shot build/test-out/styles.bmp
+quit

@@ -1,0 +1,11 @@
+# needs hunspell (or aspell/enchant) with a dictionary; run-gui-tests.sh skips it otherwise
+size 900 600
+text This is a mispelled wurd. Teh end.
+key ctrl+shift+y
+text 1
+text r
+text word
+key return
+text i
+dump build/test-out/spell.txt
+quit

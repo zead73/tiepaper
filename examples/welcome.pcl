@@ -1,0 +1,23 @@
+PAPERCLIP 1 ll=0 tabs=24n,36n
+✓cm:welcome
+✓vp4:hd2:TiePaper,,<>
+✓ft2:,A modern take on PaperClip II,
+✓lm10:rm68:ju on
+✓ce on
+Welcome to TiePaper
+✓ce off
+
+TiePaper is a post-formatting word processor. You type plain text, and the layout is decided when you preview or print it. Lines that start with a checkmark (type a backslash) are instructions, like the margins and the header above this paragraph.
+
+Words can be bold, underlined or italic; the little symbols you see while editing are the switches, and they never print. Press Ctrl+V to preview this page and F1 for every key.
+
+✓ju off
+Columns and sums
+
+Item                      Qty        Price
+Chairs                      4        12.50
+Tables                     12        85.00
+Lamps                       7         9.99
+
+Numeric tabs line the numbers up on the decimal point. Set the column over the table with Ctrl+Shift+C,
+sort it with Ctrl+Shift+A, or add it up with Ctrl+=.

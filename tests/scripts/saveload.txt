@@ -1,0 +1,23 @@
+size 900 600
+text Paragraph one has an umlaut: ü and a euro sign €.
+key return
+text \ju on
+key return
+text Paragraph three.
+key ctrl+s
+text build/test-out/sl_test
+key return
+dump build/test-out/saveload_a.txt
+key ctrl+home
+key ctrl+e
+text y
+dump build/test-out/saveload_b.txt
+key ctrl+l
+text d
+text sl_test
+key return
+dump build/test-out/saveload_c.txt
+key ctrl+s
+text sl_plain.txt
+key return
+quit

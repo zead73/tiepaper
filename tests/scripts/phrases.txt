@@ -1,0 +1,16 @@
+size 900 600
+text The quick brown fox. It jumped over the lazy dog. Done.
+key return
+text second
+key ctrl+home
+key ctrl+p
+text w
+text w
+key return
+key end
+key ctrl+k
+key ctrl+home
+key ctrl+shift+k
+text y
+dump build/test-out/phrases.txt
+quit
