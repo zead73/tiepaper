@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=TiePaper
+GenericName=Word Processor
+Comment=A modern take on the PaperClip II word processor
+Exec=tiepaper %f
+Icon=tiepaper
+Terminal=false
+Categories=Office;WordProcessor;
+Keywords=word processor;text;paperclip;
+StartupWMClass=tiepaper

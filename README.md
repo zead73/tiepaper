@@ -102,6 +102,13 @@ with its icon to your application menu (`--uninstall` removes it again). `assets
 regenerates the PNG, ICO and resource files from the SVGs; the results are committed, so
 building needs none of its tools.
 
+## Third-party software
+
+TiePaper loads SDL2 and SDL2_ttf at run time; the Windows installer and the AppImage ship them.
+SDL2_ttf includes FreeType and HarfBuzz. Their licences are in `assets/licenses/` (and in the
+`licenses` folder of the installed program). Portions of this software are copyright (c) The
+FreeType Project (www.freetype.org). All rights reserved.
+
 ## Tests
 
 ```

@@ -14,10 +14,10 @@ program tiepaper;
 uses
   {$IFDEF UNIX}cwstring,{$ENDIF}
   {$IFDEF WINDOWS}Windows,{$ENDIF}
-  SysUtils, Classes, pcdoc, pcfmt, pcout, pcconfig, pcsdl, pcspell, pcapp;
+  Math, SysUtils, Classes, pcdoc, pcfmt, pcout, pcconfig, pcsdl, pcspell, pcapp;
 
 const
-  Version = '0.1';
+  Version = '0.1.0';
 
 type
   TCli = class
@@ -155,6 +155,9 @@ var
   i: Integer;
 
 begin
+  { FPC leaves floating-point exceptions unmasked; software OpenGL (Mesa llvmpipe) and some
+    Windows drivers divide by zero on their own threads and would kill the program with SIGFPE }
+  SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
   {$IFDEF WINDOWS}
   SetMultiByteConversionCodePage(CP_UTF8);
   SetMultiByteRTLFileSystemCodePage(CP_UTF8);
