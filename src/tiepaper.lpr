@@ -17,7 +17,7 @@ uses
   Math, SysUtils, Classes, pcdoc, pcfmt, pcout, pcconfig, pcsdl, pcspell, pcapp;
 
 const
-  Version = '0.1.0';
+  Version = '0.1.1';
 
 type
   TCli = class
