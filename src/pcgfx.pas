@@ -386,33 +386,36 @@ var
   fileSize: LongWord;
   line: array of Byte;
   px: PByte;
+  ww, hh: LongInt;
 begin
   Result := '';
-  pitch := WidthPx * 4;
-  SetLength(buf, pitch * HeightPx);
+  { the renderer's real size: WidthPx / HeightPx lag behind a resize that has not been handled yet }
+  SDL_GetRendererOutputSize(Ren, ww, hh);
+  pitch := ww * 4;
+  SetLength(buf, pitch * hh);
   if SDL_RenderReadPixels(Ren, nil, SDL_PIXELFORMAT_ARGB8888, @buf[0], pitch) <> 0 then
     Exit('Cannot read the screen: ' + string(SDL_GetError()));
-  rowBytes := ((WidthPx * 3 + 3) div 4) * 4;
-  fileSize := 54 + rowBytes * HeightPx;
+  rowBytes := ((ww * 3 + 3) div 4) * 4;
+  fileSize := 54 + rowBytes * hh;
   FillChar(hdr, SizeOf(hdr), 0);
   hdr[0] := Ord('B'); hdr[1] := Ord('M');
   PLongWord(@hdr[2])^ := fileSize;
   PLongWord(@hdr[10])^ := 54;
   PLongWord(@hdr[14])^ := 40;
-  PLongInt(@hdr[18])^ := WidthPx;
-  PLongInt(@hdr[22])^ := HeightPx;
+  PLongInt(@hdr[18])^ := ww;
+  PLongInt(@hdr[22])^ := hh;
   PWord(@hdr[26])^ := 1;
   PWord(@hdr[28])^ := 24;
-  PLongWord(@hdr[34])^ := rowBytes * HeightPx;
+  PLongWord(@hdr[34])^ := rowBytes * hh;
   SetLength(line, rowBytes);
   fs := TFileStream.Create(fn, fmCreate);
   try
     fs.WriteBuffer(hdr, 54);
-    for y := HeightPx - 1 downto 0 do
+    for y := hh - 1 downto 0 do
     begin
       FillChar(line[0], rowBytes, 0);
       px := @buf[y * pitch];
-      for x := 0 to WidthPx - 1 do
+      for x := 0 to ww - 1 do
       begin
         line[x * 3] := px[0];
         line[x * 3 + 1] := px[1];

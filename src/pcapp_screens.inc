@@ -282,67 +282,114 @@ end;
 
 { ---- help ---- }
 
-{ breaks the help text to the window width; continuation lines keep the indent plus a little }
+{ The help text is a list of source lines: "#Heading", "keys|what they do", or plain text (a paragraph
+  that gets wrapped).  WrapHelp turns it into display lines for the current window width, each
+  starting with a kind letter: H heading, K a key line (key, #1, then the rest of the line, already
+  padded to the description column), D a continuation line (indent included), T plain text. }
+
+const
+  HelpKeyMax = 26;   { widest key column; longer keys would have to be shortened in the text }
+
+{ takes the next line of at most w characters off the front of rest, breaking at a space }
+function HelpBreak(var rest: string; w: Integer): string;
+var
+  k: Integer;
+begin
+  if Length(rest) <= w then
+  begin
+    Result := rest;
+    rest := '';
+    Exit;
+  end;
+  k := w;
+  while (k > 0) and (rest[k + 1] <> ' ') do Dec(k);
+  if k = 0 then k := w;
+  Result := TrimRight(Copy(rest, 1, k));
+  rest := TrimLeft(Copy(rest, k + 1, MaxInt));
+end;
+
 procedure TApp.WrapHelp(width: Integer);
 var
-  i, indent, cut, k: Integer;
-  s, rest, head: string;
+  i, p, keyW, descCol, avail: Integer;
+  s, key, rest: string;
 begin
   if HelpLines = nil then HelpLines := TStringList.Create;
   HelpLines.Clear;
   HelpWrapW := width;
+  keyW := 0;
+  for i := 0 to HelpText.Count - 1 do
+  begin
+    p := Pos('|', HelpText[i]);
+    if p > keyW + 1 then keyW := p - 1;
+  end;
+  if keyW > HelpKeyMax then keyW := HelpKeyMax;
+  descCol := 2 + keyW + 2;           { where descriptions start, counted from the left margin }
+  avail := width - descCol;
   for i := 0 to HelpText.Count - 1 do
   begin
     s := HelpText[i];
-    if (s = '') or (s[1] = '#') or (Length(s) <= width) then
+    p := Pos('|', s);
+    if s = '' then
+      HelpLines.Add('T')
+    else if s[1] = '#' then
+      HelpLines.Add('H' + Copy(s, 2, MaxInt))
+    else if p > 0 then
     begin
-      HelpLines.Add(s);
-      Continue;
-    end;
-    indent := 0;
-    while (indent < Length(s)) and (s[indent + 1] = ' ') do Inc(indent);
-    head := '';
-    rest := s;
-    repeat
-      if Length(rest) <= width - Length(head) then
+      key := Copy(s, 1, p - 1);
+      rest := Copy(s, p + 1, MaxInt);
+      if avail >= 24 then
       begin
-        HelpLines.Add(head + rest);
-        Break;
+        HelpLines.Add('K' + key + #1 + StringOfChar(' ', descCol - 2 - Length(key)) + HelpBreak(rest, avail));
+        while rest <> '' do HelpLines.Add('D' + StringOfChar(' ', descCol) + HelpBreak(rest, avail));
+      end
+      else
+      begin
+        { a narrow window: the key on a line of its own, the description under it }
+        HelpLines.Add('K' + key + #1);
+        while rest <> '' do HelpLines.Add('D' + StringOfChar(' ', 6) + HelpBreak(rest, width - 6));
       end;
-      cut := width - Length(head);
-      k := cut;
-      while (k > indent) and (rest[k + 1] <> ' ') do Dec(k);
-      if k <= indent then k := cut;
-      HelpLines.Add(head + Copy(rest, 1, k));
-      rest := Trim(Copy(rest, k + 1, MaxInt));
-      head := StringOfChar(' ', indent + 4);
-    until rest = '';
+    end
+    else
+    begin
+      rest := s;
+      while rest <> '' do HelpLines.Add('T  ' + HelpBreak(rest, width - 2));
+    end;
   end;
 end;
 
 procedure TApp.DrawHelp;
 var
-  textC, backC, dimC: LongWord;
-  i, rows, k: Integer;
-  s: string;
+  textC, backC, dimC, keyC, headC: LongWord;
+  i, rows, k, p: Integer;
+  s, key: string;
 begin
   if (HelpLines = nil) or (HelpWrapW <> Gfx.Cols - 2) then WrapHelp(Gfx.Cols - 2);
   textC := RGBOf(Cfg.ColText);
   backC := RGBOf(Cfg.ColBack);
   dimC := RGBOf(Cfg.ColReturn);
+  keyC := RGBOf(Cfg.ColMarker);
+  headC := RGBOf(Cfg.ColDirective);
   Gfx.FillCells(0, 0, Gfx.Cols, 1, textC);
   Gfx.PutText(0, 0, ' TiePaper help', backC, ST_BOLD);
-  Gfx.PutText(1, 1, 'Up/Down/PgUp/PgDn scroll   Esc or F1 closes', dimC);
-  rows := Gfx.Rows - 3;
+  Gfx.PutText(1, 1, 'Arrows/PgUp/PgDn scroll   Esc closes', dimC);
+  rows := Gfx.Rows - 4;
   for i := 0 to rows - 1 do
   begin
     k := HelpTop + i;
     if k >= HelpLines.Count then Break;
     s := HelpLines[k];
-    if (s <> '') and (s[1] = '#') then
-      Gfx.PutText(1, 2 + i, UTF8Decode(Copy(s, 2, MaxInt)), RGBOf(Cfg.ColDirective), ST_BOLD)
+    case s[1] of
+      'H': Gfx.PutText(1, 3 + i, UTF8Decode(Copy(s, 2, MaxInt)), headC, ST_BOLD);
+      'K':
+        begin
+          p := Pos(#1, s);
+          key := Copy(s, 2, p - 2);
+          Gfx.PutText(3, 3 + i, UTF8Decode(key), keyC, ST_BOLD);
+          Gfx.PutText(3 + Length(key), 3 + i, UTF8Decode(Copy(s, p + 1, MaxInt)), textC);
+        end;
     else
-      Gfx.PutText(1, 2 + i, UTF8Decode(s), textC);
+      Gfx.PutText(1, 3 + i, UTF8Decode(Copy(s, 2, MaxInt)), textC);
+    end;
   end;
   Gfx.PutText(1, Gfx.Rows - 1, UnicodeString(Format('%d%%', [(HelpTop + rows) * 100 div (HelpLines.Count + 1)])), dimC);
 end;
@@ -350,88 +397,157 @@ end;
 procedure BuildHelp(t: TStringList);
 begin
   t.Clear;
-  t.Add('#TiePaper works like PaperClip II: you type plain text and add formatting instructions to it.');
+  t.Add('#TiePaper works like PaperClip II');
+  t.Add('You type plain text and add formatting instructions to it.  The screen shows exactly what you type.  A left arrow marks the end of each paragraph (the "return marker").');
+  t.Add('Formatting instructions go on their own lines that start with a checkmark: type a backslash (\) to make it.  Preview with Ctrl+V, output with Ctrl+O.');
+  t.Add('Control keys: hold Ctrl and press the key, or tap and release Ctrl and then press the key.  Capitals mean Ctrl+Shift.');
   t.Add('');
-  t.Add('  The screen shows exactly what you type.  A left arrow marks the end of each paragraph (the');
-  t.Add('  "return marker").  Formatting instructions go on their own lines that start with a checkmark.');
-  t.Add('  Type a backslash (\) to make the checkmark.  Preview with Ctrl+V; output with Ctrl+O.');
+  t.Add('#Editing');
+  t.Add('Arrows|Move the cursor');
+  t.Add('Home / End|Start / end of the line');
+  t.Add('Ctrl+Home / Ctrl+End|Top / bottom of the text');
+  t.Add('PgUp / PgDn|Up / down a screen');
+  t.Add('Ctrl+Up / Ctrl+Down|Fast scroll');
+  t.Add('Shift+Return|Start of the next line');
+  t.Add('Insert|Insert / overwrite');
+  t.Add('Delete / Backspace|Delete');
+  t.Add('Ctrl+-|Delete the line');
+  t.Add('Ctrl++|Insert a line');
+  t.Add('Ctrl+I|Insert many lines');
+  t.Add('Ctrl+E|Erase text (or the range) from the cursor down');
+  t.Add('Ctrl+U|Unformat text');
+  t.Add('Ctrl+Z / Ctrl+Shift+Z|Undo / redo');
+  t.Add('F7|Word wrap on / off');
+  t.Add('Ctrl+Shift+L|Line length');
+  t.Add('Alt+C / Alt+X / Alt+V|Copy / cut / paste with the system clipboard (phrase or range); Ctrl+Insert, Shift+Delete, Shift+Insert work too');
+  t.Add('Esc F5 / F5|Set a bookmark (two are kept) / jump to a bookmark');
   t.Add('');
-  t.Add('#Keys: hold Ctrl, or tap Ctrl and release it, then press the key (capitals mean Ctrl+Shift)');
-  t.Add('  Editing');
-  t.Add('    Arrows move; Home/End line start/end; Ctrl+Home/End top/bottom of text; PgUp/PgDn a screen');
-  t.Add('    Ctrl+Up/Down  fast scroll        Shift+Return  start of the next line');
-  t.Add('    Insert  insert/overwrite         Delete  and  Backspace  delete');
-  t.Add('    Ctrl+-  delete the line          Ctrl++  insert a line       Ctrl+I  insert many lines');
-  t.Add('    Ctrl+E  erase text (or the range) from the cursor down       Ctrl+U  unformat text');
-  t.Add('    Ctrl+Z  undo   Ctrl+Shift+Z  redo     F7  word wrap on/off     Ctrl+Shift+L  line length');
-  t.Add('    Tab  next tab    Esc Tab  next numeric tab    F6  set/clear tab at the cursor');
-  t.Add('    Ctrl+N  set/clear numeric tab    Ctrl+F6  clear all tabs');
-  t.Add('    Esc F5  set a bookmark (two are kept)      F5  jump to a bookmark');
-  t.Add('    Alt+C / Alt+X / Alt+V  copy / cut / paste with the system clipboard (phrase or range)');
-  t.Add('  Selecting text');
-  t.Add('    Shift+arrows, Shift+Home/End/PgUp/PgDn, Ctrl+Shift+Left/Right (by word), Ctrl+Shift+Home/End;');
-  t.Add('    drag with the mouse, double-click a word, Shift+click to extend, Alt+A selects everything.');
-  t.Add('    Typing, Return, Backspace or Delete replaces/removes it; Alt+C/X/V (also Ctrl+Insert,');
-  t.Add('    Shift+Delete, Shift+Insert) use the clipboard; Esc clears it.');
-  t.Add('    Alt+B / Alt+I / Alt+U  (Ctrl+B too) bold / italics / underline: turns it on or off at the cursor,');
-  t.Add('    or wraps the selection (or the phrase) if there is one.  The text shows the effect as you type.');
-  t.Add('  Line ranges (whole lines)');
-  t.Add('    Ctrl+R  set range (arrows, then Return)    Ctrl+T  transfer    Ctrl+C  copy');
-  t.Add('    Ctrl+D  delete range                       Ctrl+E  erase range    Ctrl+Q  save range to a file');
-  t.Add('  Phrases (inside one paragraph)');
-  t.Add('    Ctrl+P  set phrase (Left/Right extend it, S = to the next sentence end, W = next word)');
-  t.Add('    Ctrl+M  move   Ctrl+K  copy   Ctrl+Y  set and delete   Ctrl+Shift+K  change case');
-  t.Add('    Instant phrases: define a line  \t=text  then Esc t  types the text.  52 keys, a-z and A-Z.');
-  t.Add('  Columns (every line of the table must be a short paragraph of its own)');
-  t.Add('    Ctrl+Shift+C  set column (arrows size it, End or $ goes to the right edge)');
-  t.Add('    Ctrl+Shift+  M move   S shift   R repeat   I insert spaces   D delete   E erase   W fill');
-  t.Add('    Ctrl+=  add the column   Ctrl+Shift+H  add rows   Ctrl+.  decimal places');
-  t.Add('    Ctrl+Shift+A  sort   Ctrl+Shift+Q  field separators');
-  t.Add('  Searching');
-  t.Add('    Ctrl+F  find   Ctrl+H  hunt for the next one   Ctrl+@ (Ctrl+Shift+2)  search and replace');
-  t.Add('    In a search string:  .  any character   ?  any letter   [  start of a word   ]  end of a word');
-  t.Add('    '' makes the next character exact (case and meaning).  Use Esc to type print marks in it.');
-  t.Add('  Print marks (after Esc)');
-  t.Add('    Esc [ ]  underline on/off     Esc ( )  bold on/off     Esc < >  italics on/off');
-  t.Add('    Esc #  superscript next character   Esc %  superscript on   Esc ''  off');
-  t.Add('    Esc $  subscript next character     Esc !  subscript on     Esc "  off');
-  t.Add('    Esc .  underline character   Esc -  conditional hyphen   Esc /  or  Ctrl+Shift+1  breakpoint');
-  t.Add('    Shift+Space  hard space (the words stay together)');
-  t.Add('  Files and output');
-  t.Add('    Ctrl+S  save   Ctrl+L  load   Ctrl+A  append a file here   Ctrl+0  directory');
-  t.Add('    Ctrl+1  your home folder   Ctrl+3  directory with wild cards');
-  t.Add('    Ctrl+V  preview   Ctrl+O  output (PDF, text or printer)   Ctrl+Shift+O  print at once');
-  t.Add('    Ctrl+Shift+Y  spell check with the system checker (hunspell/aspell/enchant, or Windows');
-  t.Add('    own).  1-9 take a suggestion, R retype, I ignore, A add to the dictionary, Space skip');
-  t.Add('    F2  screen options   F4  file options   F1  this help   Ctrl+Shift+X  quit');
-  t.Add('    Names ending in .txt are saved as plain text; anything else keeps tabs and line length.');
+  t.Add('#Tabs');
+  t.Add('Tab|Next tab');
+  t.Add('Esc Tab|Next numeric tab');
+  t.Add('F6|Set / clear a tab at the cursor');
+  t.Add('Ctrl+N|Set / clear a numeric tab');
+  t.Add('Ctrl+F6|Clear all tabs');
   t.Add('');
-  t.Add('#Format instructions (each on a line that starts with a checkmark; join several with colons)');
-  t.Add('    lm10 rm70      left and right margin (lm+5 or lm-3 adjusts relative to the base; lm+0 undoes it)');
-  t.Add('    pp66 pg56 vp0  paper length, lines printed per page, blank lines at the top');
-  t.Add('    of5            printer offset: shift everything right');
-  t.Add('    sp2  ls8       print spacing (1-9)  and lines per inch (6, 8 or other = 4)');
-  t.Add('    pt10           characters per inch: 10, 12, 15, or any 4-30');
-  t.Add('    ju on          justify      ce on  centre      ra on  right align (off turns each off)');
-  t.Add('    fp  fp8        new page now, or only if fewer than 8 lines remain');
-  t.Add('    ln4            insert 4 blank lines            ma+5  indent the next paragraph');
-  t.Add('    ai+5           automatic first-line indent for every paragraph (ai+0 turns it off)');
-  t.Add('    hd3:left,middle,right   header 3 lines above the text (the character after the number is the');
-  t.Add('                            separator, so  hd3!Left!Mid!Right  allows commas); hd0 turns it off');
-  t.Add('    ft2:,,<>       footer 2 lines above the bottom edge; <> is the page number, [] the chapter');
-  t.Add('    p#5  p#+1      set / adjust the page number    ch2  ch+1  chapter number');
-  t.Add('    hl hr fl fr    header/footer margins        ml on  lock them to stay put   ph pf  their pitch');
-  t.Add('    cm:text        comment (a comment on line 1 is offered as the file name)');
-  t.Add('    ps:message     pause message shown in the preview');
-  t.Add('    nx:name        carry on with the next file (must be last)      lk  ask for the next file');
-  t.Add('    ex:name        print another file here, then come back');
-  t.Add('    tf:name  tb:text   write a table of contents file while previewing or outputting');
-  t.Add('    The header needs room above the text: use vp, e.g.  \vp4:hd2:Title,,<>');
+  t.Add('#Selecting text');
+  t.Add('Shift+arrows|Select as you move');
+  t.Add('Shift+Home/End/PgUp/PgDn|Select to the start / end of the line, or a screen at a time');
+  t.Add('Ctrl+Shift+Left / Right|Select by word');
+  t.Add('Ctrl+Shift+Home / End|Select to the top / bottom of the text');
+  t.Add('Mouse drag|Select');
+  t.Add('Double-click|Select a word');
+  t.Add('Shift+click|Extend the selection');
+  t.Add('Alt+A|Select everything');
+  t.Add('Esc|Clear the selection');
+  t.Add('Alt+B / Alt+I / Alt+U|Bold / italics / underline (Ctrl+B also does bold): switch it on or off at the cursor, or wrap the selection (or the phrase).  The text shows the effect as you type.');
+  t.Add('');
+  t.Add('Typing, Return, Backspace or Delete replaces or removes the selection.');
+  t.Add('');
+  t.Add('#Line ranges (whole lines)');
+  t.Add('Ctrl+R|Set the range (arrows, then Return)');
+  t.Add('Ctrl+T|Transfer');
+  t.Add('Ctrl+C|Copy');
+  t.Add('Ctrl+D|Delete the range');
+  t.Add('Ctrl+E|Erase the range');
+  t.Add('Ctrl+Q|Save the range to a file');
+  t.Add('');
+  t.Add('#Phrases (inside one paragraph)');
+  t.Add('Ctrl+P|Set a phrase (Left / Right extend it, S = to the next sentence end, W = next word)');
+  t.Add('Ctrl+M|Move the phrase');
+  t.Add('Ctrl+K|Copy the phrase');
+  t.Add('Ctrl+Y|Set the phrase and delete it');
+  t.Add('Ctrl+Shift+K|Change case');
+  t.Add('');
+  t.Add('Instant phrases: define a line like  \t=text  and Esc t then types the text.  There are 52 keys, a-z and A-Z.');
+  t.Add('');
+  t.Add('#Columns');
+  t.Add('Every line of the table must be a short paragraph of its own.');
+  t.Add('Ctrl+Shift+C|Set the column (arrows size it; End or $ goes to the right edge)');
+  t.Add('Ctrl+Shift+M / S / R|Move / shift / repeat the column');
+  t.Add('Ctrl+Shift+I / D / E / W|Insert spaces / delete / erase / fill');
+  t.Add('Ctrl+=|Add the column');
+  t.Add('Ctrl+Shift+H|Add rows');
+  t.Add('Ctrl+.|Decimal places');
+  t.Add('Ctrl+Shift+A|Sort');
+  t.Add('Ctrl+Shift+Q|Field separators');
+  t.Add('');
+  t.Add('#Searching');
+  t.Add('Ctrl+F|Find');
+  t.Add('Ctrl+H|Hunt for the next one');
+  t.Add('Ctrl+@ (Ctrl+Shift+2)|Search and replace');
+  t.Add('In a search string:');
+  t.Add('.|Any character');
+  t.Add('?|Any letter');
+  t.Add('[|Start of a word');
+  t.Add(']|End of a word');
+  t.Add('''|Makes the next character exact (case and meaning)');
+  t.Add('');
+  t.Add('Use Esc to type print marks in a search string.');
+  t.Add('');
+  t.Add('#Print marks (after Esc)');
+  t.Add('Esc [ ]|Underline on / off');
+  t.Add('Esc ( )|Bold on / off');
+  t.Add('Esc < >|Italics on / off');
+  t.Add('Esc #|Superscript the next character');
+  t.Add('Esc % / Esc ''|Superscript on / off');
+  t.Add('Esc $|Subscript the next character');
+  t.Add('Esc ! / Esc "|Subscript on / off');
+  t.Add('Esc .|Underline the next character');
+  t.Add('Esc -|Conditional hyphen');
+  t.Add('Esc / or Ctrl+Shift+1|Breakpoint');
+  t.Add('Shift+Space|Hard space (the words stay together)');
+  t.Add('');
+  t.Add('#Files and output');
+  t.Add('Ctrl+S|Save');
+  t.Add('Ctrl+L|Load');
+  t.Add('Ctrl+A|Append a file here');
+  t.Add('Ctrl+0|Directory');
+  t.Add('Ctrl+1|Your home folder');
+  t.Add('Ctrl+3|Directory with wild cards');
+  t.Add('Ctrl+V|Preview');
+  t.Add('Ctrl+O|Output (PDF, text or printer)');
+  t.Add('Ctrl+Shift+O|Print at once');
+  t.Add('Ctrl+Shift+Y|Spell check with the system checker (hunspell, aspell or enchant; Windows'' own).  1-9 take a suggestion, R retype, I ignore, A add to the dictionary, Space skip');
+  t.Add('F2|Screen options');
+  t.Add('F4|File options');
+  t.Add('F1|This help');
+  t.Add('Ctrl+Shift+X|Quit');
+  t.Add('');
+  t.Add('Names ending in .txt are saved as plain text; anything else keeps tabs and line length.');
+  t.Add('');
+  t.Add('#Format instructions');
+  t.Add('Each goes on a line that starts with a checkmark; join several with colons.');
+  t.Add('lm10 rm70|Left and right margin (lm+5 or lm-3 adjusts relative to the base; lm+0 undoes it)');
+  t.Add('pp66 pg56 vp0|Paper length, lines printed per page, blank lines at the top');
+  t.Add('of5|Printer offset: shift everything right');
+  t.Add('sp2  ls8|Print spacing (1-9) and lines per inch (6, 8 or other = 4)');
+  t.Add('pt10|Characters per inch: 10, 12, 15, or any 4-30');
+  t.Add('ju on|Justify (ju off turns it off)');
+  t.Add('ce on|Centre (ce off turns it off)');
+  t.Add('ra on|Right align (ra off turns it off)');
+  t.Add('fp  fp8|New page now, or only if fewer than 8 lines remain');
+  t.Add('ln4|Insert 4 blank lines');
+  t.Add('ma+5|Indent the next paragraph');
+  t.Add('ai+5|Automatic first-line indent for every paragraph (ai+0 turns it off)');
+  t.Add('hd3:left,middle,right|Header 3 lines above the text.  The character after the number is the separator, so  hd3!Left!Mid!Right  allows commas; hd0 turns it off');
+  t.Add('ft2:,,<>|Footer 2 lines above the bottom edge; <> is the page number, [] the chapter');
+  t.Add('p#5  p#+1|Set / adjust the page number');
+  t.Add('ch2  ch+1|Chapter number');
+  t.Add('hl hr fl fr|Header / footer margins');
+  t.Add('ml on|Lock them to stay put');
+  t.Add('ph pf|Their pitch');
+  t.Add('cm:text|Comment (a comment on line 1 is offered as the file name)');
+  t.Add('ps:message|Pause message shown in the preview');
+  t.Add('nx:name|Carry on with the next file (must be last)');
+  t.Add('lk|Ask for the next file');
+  t.Add('ex:name|Print another file here, then come back');
+  t.Add('tf:name  tb:text|Write a table of contents file while previewing or outputting');
+  t.Add('');
+  t.Add('The header needs room above the text: use vp, e.g.  \vp4:hd2:Title,,<>');
   t.Add('');
   t.Add('#Differences from the Commodore program');
-  t.Add('    Not included: the SpellPack checker, form letters, telecommunications, disk commands and');
-  t.Add('    printer files.  Output is PDF, text or your system printer.  Characters are Unicode.');
-  t.Add('    Line length defaults to the window width, and changing it never erases text.');
+  t.Add('Not included: the SpellPack checker, form letters, telecommunications, disk commands and printer files.  Output is PDF, text or your system printer.  Characters are Unicode.');
+  t.Add('Line length defaults to the window width, and changing it never erases text.');
 end;
 
 procedure TApp.DoHelp;
@@ -449,7 +565,7 @@ begin
   try
     while WaitKey(ev) do
     begin
-      rows := Gfx.Rows - 3;
+      rows := Gfx.Rows - 4;
       if (HelpLines = nil) or (HelpWrapW <> Gfx.Cols - 2) then WrapHelp(Gfx.Cols - 2);
       if ev.Kind = ekWheel then HelpTop := HelpTop - ev.Wheel * 3
       else if ev.Kind = ekKey then
