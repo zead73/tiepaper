@@ -1,5 +1,12 @@
 { pcapp_blocks.inc - line ranges, phrases and columns (included by pcapp.pas) }
 
+{ file picker filters: "name|patterns" }
+const
+  PaperFilters: array[0..3] of string = (
+    'PCL and text|*.pcl;*.txt', 'PaperClip (*.pcl)|*.pcl', 'Text (*.txt)|*.txt',
+    'All files|*');
+  OutputFilters: array[0..2] of string = ('PDF (*.pdf)|*.pdf', 'Text (*.txt)|*.txt', 'All files|*');
+
 function NormalizeName(const name: string): string;
 begin
   Result := Trim(name);
@@ -298,17 +305,14 @@ end;
 
 procedure TApp.RangeSave;
 var
-  name: UnicodeString;
   fn, err: string;
   t: TDoc;
   i: Integer;
 begin
   if not Doc.RangeSet then begin SetMsg('No Line Range set', True); Exit; end;
-  name := '';
-  if not Ask('Filename?', name, 0, False) then Exit;
-  fn := NormalizeName(UTF8Encode(name));
+  if not PickFile(pmSave, 'Save range as', DocDir, '', PaperFilters, 1, fn) then Exit;
+  fn := NormalizeName(fn);
   if fn = '' then Exit;
-  fn := ResolvePath(fn);
   if FileExists(fn) and (AskYN('Replace existing file?') <> 1) then Exit;
   t := TDoc.Create;
   try

@@ -9,6 +9,7 @@
     pcapp_blocks.inc   line ranges, phrases, columns
     pcapp_search.inc   find, hunt, search and replace, unformat
     pcapp_files.inc    load, save, append, directory, output
+    pcapp_picker.inc   the file picker (Open, Save, Append, Output)
     pcapp_screens.inc  preview, help, menus
 
   Key bindings follow the PaperClip II manual (Appendix A); see docs/keys.md for
@@ -20,19 +21,21 @@ unit pcapp;
 interface
 
 uses
-  SysUtils, Classes, Character, pcsdl, pcconfig, pcgfx, pcdoc, pcsearch, pccolumns, pcfmt, pcout, pcspell;
+  SysUtils, Classes, Character, pcsdl, pcconfig, pcgfx, pcdoc, pcsearch, pccolumns, pcfmt, pcout, pcspell, pcdirs;
 
 const
   SYM_CTRLTAP = $7FFF0001;      { a Control key pressed and released on its own }
 
 type
-  TDirEntry = record
+  TDirItem = record
     Name: string;
     IsDir: Boolean;
     Size: Int64;
     Time: TDateTime;
   end;
-  TDirItems = array of TDirEntry;
+  TDirItems = array of TDirItem;
+
+  TPickMode = (pmOpen, pmSave);
 
   TEvKind = (ekNone, ekKey, ekText, ekWheel, ekClick, ekDrag, ekRelease, ekQuit, ekResize);
 
@@ -120,6 +123,16 @@ type
     DirItems: TDirItems;
     DirPath, DirMask: string;
     DirSel, DirTop: Integer;
+    { the file picker }
+    PkMode: TPickMode;
+    PkTitle, PkDir: string;
+    PkEntries: TDirEntries;
+    PkSel, PkTop, PkFilter, PkPos: Integer;
+    PkEdit: UnicodeString;
+    PkFresh, PkHidden, PkNavigated: Boolean;
+    PkFilterNames, PkFilterPats: TStringList;
+    PkPlaces: TPlaces;
+    PkPlaceSel: Integer;
 
     { ---- input ---- }
     procedure PushEvent(const ev: TKeyEv);
@@ -279,6 +292,15 @@ type
     procedure RunMenu(kind: Integer; const title: string);
     procedure LoadDirectory(const path, mask: string);
     procedure DrawDirScreen;
+    { the file picker }
+    function PickFile(mode: TPickMode; const title, startDir, startName: string; const filters: array of string;
+      filterIndex: Integer; out path: string): Boolean;
+    procedure PkLoad(const dir, focus: string);
+    procedure DrawPicker;
+    procedure DrawPlaces;
+    procedure PkEnter(var finished, ok: Boolean; out path: string);
+    function PkPlacesScreen: Boolean;
+    procedure PkMakeDir;
   end;
 
 procedure OpenExternally(const path: string);
@@ -336,6 +358,7 @@ end;
 {$I pcapp_blocks.inc}
 {$I pcapp_search.inc}
 {$I pcapp_files.inc}
+{$I pcapp_picker.inc}
 {$I pcapp_screens.inc}
 {$I pcapp_spell.inc}
 
@@ -356,6 +379,8 @@ begin
   MarkC[0] := 0;
   MarkC[1] := 0;
   for i := 0 to High(Histories) do Histories[i] := TStringList.Create;
+  PkFilterNames := TStringList.Create;
+  PkFilterPats := TStringList.Create;
   Script := TStringList.Create;
 end;
 
@@ -365,6 +390,8 @@ var
 begin
   for i := 0 to High(Histories) do Histories[i].Free;
   Script.Free;
+  PkFilterNames.Free;
+  PkFilterPats.Free;
   HelpText.Free;
   HelpLines.Free;
   PvFmt.Free;

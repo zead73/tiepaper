@@ -498,9 +498,9 @@ begin
   t.Add('Shift+Space|Hard space (the words stay together)');
   t.Add('');
   t.Add('#Files and output');
-  t.Add('Ctrl+S|Save');
-  t.Add('Ctrl+L|Load');
-  t.Add('Ctrl+A|Append a file here');
+  t.Add('Ctrl+S|Save: the file picker, with the name on the edit line.  A name that exists asks before it is replaced');
+  t.Add('Ctrl+L|Load, with the file picker.  Type to jump to a name or to enter a path, Enter opens a folder or the file, Backspace goes up, Tab changes the filter, F2 lists places (home, drives, bookmarks), F7 makes a folder, Ctrl+H shows hidden files, F10 accepts, Esc cancels');
+  t.Add('Ctrl+A|Append a file here (the file picker again)');
   t.Add('Ctrl+0|Directory');
   t.Add('Ctrl+1|Your home folder');
   t.Add('Ctrl+3|Directory with wild cards');

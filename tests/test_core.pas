@@ -7,7 +7,7 @@ program test_core;
 
 uses
   {$IFDEF USECW}cwstring,{$ENDIF}
-  SysUtils, Classes, pcdoc, pcsearch, pccolumns, pcfmt, pcout, pcspell;
+  SysUtils, Classes, pcdoc, pcsearch, pccolumns, pcfmt, pcout, pcspell, pcdirs;
 
 var
   Fails, Passes: Integer;
@@ -522,6 +522,8 @@ begin
   f.Free;
 end;
 
+{$I tests_dirs.inc}
+
 begin
   {$IFDEF WINDOWS}
   SetMultiByteConversionCodePage(CP_UTF8);
@@ -540,6 +542,7 @@ begin
   TestColumns;
   TestSpellScan;
   TestOutput;
+  TestDirs;
   WriteLn(Passes, ' passed, ', Fails, ' failed');
   if Fails > 0 then Halt(1);
 end.

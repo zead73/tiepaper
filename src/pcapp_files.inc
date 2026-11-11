@@ -96,14 +96,14 @@ end;
 
 procedure TApp.DoSave;
 var
-  name: UnicodeString;
-  fn: string;
+  name, fn: string;
+  fi: Integer;
 begin
-  name := UTF8Decode(DefaultName);
-  if not Ask('Filename?', name, 0, False) then Exit;
-  fn := NormalizeName(UTF8Encode(name));
+  name := DefaultName;
+  if LowerCase(ExtractFileExt(name)) = '.txt' then fi := 2 else fi := 1;
+  if not PickFile(pmSave, 'Save as', DocDir, name, PaperFilters, fi, fn) then Exit;
+  fn := NormalizeName(fn);
   if fn = '' then Exit;
-  fn := ResolvePath(fn);
   if FileExists(fn) and (ExpandFileName(fn) <> ExpandFileName(Doc.FileName)) then
     if AskYN('Replace existing file?') <> 1 then Exit;
   SavePath(fn, False);
@@ -138,43 +138,24 @@ end;
 
 procedure TApp.DoLoad;
 var
-  name: UnicodeString;
-  fn, nx: string;
+  name, fn, nx: string;
 begin
   if not ConfirmDiscard then Exit;
-  if ChainNext(nx) then name := UTF8Decode(nx)
-  else if Doc.FileName <> '' then name := UTF8Decode(ExtractFileName(Doc.FileName))
+  if ChainNext(nx) then name := nx
+  else if Doc.FileName <> '' then name := ExtractFileName(Doc.FileName)
   else name := '';
-  if not Ask('Filename?', name, 0, False) then Exit;
-  fn := Trim(UTF8Encode(name));
-  if fn = '' then Exit;
-  fn := FindExisting(ExpandWild(ResolvePath(fn)));
-  if not FileExists(fn) then
-  begin
-    SetMsg(UnicodeString('62,file not found: ' + ExtractFileName(fn)), True);
-    Exit;
-  end;
+  if not PickFile(pmOpen, 'Load', DocDir, name, PaperFilters, 0, fn) then Exit;
   LoadPath(fn, False);
 end;
 
 procedure TApp.DoAppend;
 var
-  name: UnicodeString;
   fn: string;
   t: TDoc;
   i, at, n: Integer;
   err: string;
 begin
-  name := '';
-  if not Ask('Filename?', name, 0, False) then Exit;
-  fn := Trim(UTF8Encode(name));
-  if fn = '' then Exit;
-  fn := FindExisting(ExpandWild(ResolvePath(fn)));
-  if not FileExists(fn) then
-  begin
-    SetMsg(UnicodeString('62,file not found: ' + ExtractFileName(fn)), True);
-    Exit;
-  end;
+  if not PickFile(pmOpen, 'Append', DocDir, '', PaperFilters, 0, fn) then Exit;
   t := TDoc.Create;
   try
     err := t.LoadFromFile(fn);
@@ -201,9 +182,9 @@ procedure TApp.LoadDirectory(const path, mask: string);
 var
   sr: TSearchRec;
   n: Integer;
-  e: TDirEntry;
+  e: TDirItem;
   i, j: Integer;
-  tmp: TDirEntry;
+  tmp: TDirItem;
 begin
   DirPath := ExcludeTrailingPathDelimiter(ExpandFileName(path));
   if DirPath = '' then DirPath := PathDelim;
@@ -256,7 +237,7 @@ procedure TApp.DrawDirScreen;
 var
   textC, backC, dimC, fg, bg: LongWord;
   i, k, rows, nameW: Integer;
-  e: TDirEntry;
+  e: TDirItem;
   line, sz: UnicodeString;
 begin
   textC := RGBOf(Cfg.ColText);
@@ -304,7 +285,7 @@ var
   ev: TKeyEv;
   startDir, mask, home, fn: string;
   s: UnicodeString;
-  e: TDirEntry;
+  e: TDirItem;
   t: TDoc;
   i, at: Integer;
   err: string;
@@ -548,8 +529,7 @@ end;
 procedure TApp.OutputPages(f: TFormatter);
 var
   c: WideChar;
-  name: UnicodeString;
-  fn, err, base, tmp: string;
+  name, fn, err, base, tmp: string;
   first, last, copies: Integer;
 begin
   c := AskChoice('Output to:  P)DF file   T)ext file   R) printer   (Esc cancels)', 'PTR');
@@ -562,11 +542,10 @@ begin
   case c of
     'P', 'T':
       begin
-        if c = 'P' then name := UTF8Decode(base + '.pdf') else name := UTF8Decode(base + '.txt');
-        if not Ask('Filename?', name, 0, False) then Exit;
-        fn := Trim(UTF8Encode(name));
+        if c = 'P' then name := base + '.pdf' else name := base + '.txt';
+        if not PickFile(pmSave, 'Output', DocDir, name, OutputFilters, IfThenInt(c = 'P', 0, 1), fn) then Exit;
+        fn := Trim(fn);
         if fn = '' then Exit;
-        fn := ResolvePath(fn);
         if FileExists(fn) and (AskYN('Replace existing file?') <> 1) then Exit;
         if c = 'P' then err := WritePDF(f, fn, TPaperSize(Cfg.Paper), first, last)
         else err := WritePlainText(f, fn, first, last);

@@ -37,6 +37,7 @@ keyboard-driven and good with tables.
 - Select text with Shift+arrows or the mouse (drag, double-click a word, Alt+A for all), then type, delete, copy or make it bold
 - Bold, italics and underline shown live in the editor, on Alt+B / Alt+I / Alt+U (Ctrl+B too)
 - Undo/redo, system clipboard (Alt+C / Alt+X / Alt+V), mouse positioning and wheel
+- A **file picker** for Load, Save, Append, Range Save and Output (Far-style, shared with TieSheet): type to jump or to enter a path, Tab changes the filter, F2 lists places and drives, F7 makes a folder
 - Asks before discarding changes; saves through a temporary file and keeps a `.bak`
 
 ## Not included

@@ -1,0 +1,25 @@
+size 900 600
+open build/test-out/chain1.pcl
+dump build/test-out/picker_a.txt
+key ctrl+l
+shot build/test-out/picker_open.png
+key escape
+key escape
+dump build/test-out/picker_cancel.txt
+key ctrl+l
+text chain2
+key return
+dump build/test-out/picker_b.txt
+key ctrl+l
+text chain
+key return
+dump build/test-out/picker_c.txt
+key ctrl+s
+shot build/test-out/picker_save.png
+key return
+dump build/test-out/picker_d.txt
+key ctrl+a
+text chain2
+key return
+dump build/test-out/picker_e.txt
+quit

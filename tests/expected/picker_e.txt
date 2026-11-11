@@ -1,0 +1,3 @@
+beta dog two
+alpha dog one
+✓nx:chain2.pcl
