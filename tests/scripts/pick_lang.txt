@@ -1,0 +1,9 @@
+size 900 600
+open build/test-out/noext_src
+key ctrl+shift+p
+key ctrl+shift+p
+key ctrl+end
+key return
+text // edited
+dump build/test-out/pick_lang_a.txt
+quit

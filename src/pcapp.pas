@@ -77,8 +77,8 @@ type
     StyleValid: Boolean;
     ParaStyle: array of Byte;
     { syntax colouring (plain text mode): the state each paragraph starts in, and the classes of one paragraph }
+    LangOverride: TLang;                  { lnNone = pick the language from the file name, as usual }
     HlLang: TLang;
-    HlRev: LongWord;
     HlValid: Boolean;
     HlUpTo: Integer;
     HlState: array of Word;
@@ -179,6 +179,7 @@ type
     procedure HlPrepare(lastPara: Integer);
     procedure HlLoadPara(p: Integer);
     procedure ToggleSyntax;
+    procedure PickLanguage;
     function StyleAt(p, c: Integer): Byte;
     procedure ToggleStyle(kind: Char);
 

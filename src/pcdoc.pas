@@ -70,7 +70,7 @@ type
     function GetLine(i: Integer): UnicodeString;
     procedure SetLine(i: Integer; const s: UnicodeString);
     procedure Grow(n: Integer);
-    procedure Touch;
+    procedure Touch(fromPara: Integer);
     procedure Snapshot(var snap: TUndoSnap);
     procedure Restore(const snap: TUndoSnap);
     procedure ClearMarks;
@@ -85,6 +85,7 @@ type
     LoadNote: string;                       { something worth telling the user about the last load }
     SaveNote: string;                       { and about the last save }
     Rev: LongWord;                          { changes whenever the text does }
+    DirtyFrom: Integer;                     { the lowest paragraph changed since a consumer last reset this }
     Modified: Boolean;
     LineLen: Integer;                       { 0 = fit the window }
     Tabs: array[0..MAXWIDTH] of Byte;       { by 0-based column }
@@ -335,13 +336,14 @@ begin
   SetLength(FUndo, 0);
   SetLength(FRedo, 0);
   FLastKey := 0;
-  Touch;
+  Touch(0);
 end;
 
-procedure TDoc.Touch;
+procedure TDoc.Touch(fromPara: Integer);
 begin
   FLayDirty := True;
   Inc(Rev);
+  if fromPara < DirtyFrom then DirtyFrom := fromPara;
 end;
 
 procedure TDoc.Grow(n: Integer);
@@ -360,7 +362,7 @@ begin
   begin
     FLines[i] := s;
     Modified := True;
-    Touch;
+    Touch(i);
   end;
 end;
 
@@ -379,7 +381,7 @@ begin
     else if c < PhC2 then Inc(PhC2, n);
   end;
   Modified := True;
-  Touch;
+  Touch(p);
 end;
 
 procedure TDoc.DelText(p, c, n: Integer);
@@ -407,7 +409,7 @@ begin
     if PhC2 <= PhC1 then PhraseSet := False;
   end;
   Modified := True;
-  Touch;
+  Touch(p);
 end;
 
 procedure TDoc.SplitPara(p, c: Integer);
@@ -448,7 +450,7 @@ begin
   for i := 0 to 1 do
     if MarkP[i] > p then Inc(MarkP[i]);
   Modified := True;
-  Touch;
+  Touch(p);
 end;
 
 procedure TDoc.JoinPara(p: Integer);
@@ -481,7 +483,7 @@ begin
   for i := 0 to 1 do
     if MarkP[i] > p then Dec(MarkP[i]);
   Modified := True;
-  Touch;
+  Touch(p);
 end;
 
 procedure TDoc.InsPara(p: Integer; const s: UnicodeString);
@@ -509,7 +511,7 @@ begin
   for i := 0 to 1 do
     if MarkP[i] >= p then Inc(MarkP[i]);
   Modified := True;
-  Touch;
+  Touch(p);
 end;
 
 procedure TDoc.DelParas(p, n: Integer);
@@ -560,7 +562,7 @@ begin
       if (MarkP[i] >= p) and (MarkP[i] < p + n) then MarkP[i] := -1 else MarkP[i] := Fix(MarkP[i]);
     end;
   Modified := True;
-  Touch;
+  Touch(p);
 end;
 
 procedure TDoc.ReplaceText(p: Integer; const s: UnicodeString);
@@ -574,7 +576,7 @@ begin
     else if PhC2 > Length(s) then PhC2 := Length(s);
   end;
   Modified := True;
-  Touch;
+  Touch(p);
 end;
 
 { undo }
@@ -603,7 +605,7 @@ begin
   if CurP >= FCount then CurP := FCount - 1;
   ClearMarks;
   Modified := True;
-  Touch;
+  Touch(0);
 end;
 
 procedure TDoc.PushUndo(key: Integer);
@@ -913,7 +915,7 @@ begin
   SetLength(FLines, cnt + 16);
   for i := 0 to cnt - 1 do FLines[i] := list[i];
   FCount := cnt;
-  Touch;
+  Touch(0);
 end;
 
 function IsValidUtf8(const raw: RawByteString; from: Integer): Boolean;
@@ -1051,7 +1053,7 @@ begin
   CurC := 0;
   ClearMarks;
   ForgetUndo;
-  Touch;
+  Touch(0);
 end;
 
 procedure TDoc.ToPaperClip;
@@ -1064,7 +1066,7 @@ begin
   CurC := 0;
   CurP := 0;
   ClearMarks;
-  Touch;
+  Touch(0);
 end;
 
 function TDoc.PlainText: UnicodeString;

@@ -5,9 +5,9 @@
 2. ~~**Programming syntax.**~~ Done (2026-11-23): Pascal, C/C++, Rust, Python, shell and config files, by file name, Ctrl+Shift+G turns it off.
 3. ~~**More syntax languages.**~~ Done (2026-11-23): Go, Java, JavaScript, C#, Lua, HTML, Markdown and SQL, by file
    extension (key highlighting in `key value` config files, e.g. kitty.conf, sshd_config, shipped with item 2).
-4. **Language picker and colouring performance.** A way to pick the language by hand for files with no telling
-   name. Colouring re-tokenizes every paragraph above the last visible one after each edit: about 40 ms at
-   20,000 lines, so a very large file would feel slow; remembering the first changed paragraph would fix that.
+4. ~~**Language picker and colouring performance.**~~ Done (2026-11-23): Ctrl+Shift+P steps through the
+   languages by hand, for files whose name does not pick one. Colouring now retokenizes only from the lowest
+   paragraph an edit actually touched (`TDoc.DirtyFrom`) instead of the whole file on every keystroke.
 5. **Tab width display in plain mode.** A tab character is kept in the file but shows as an arrow one cell wide,
    so tab-aligned files (fstab, sshd_config, Makefiles) look ragged. Needs a screen-column versus
    character-index mapping in the layout, cursor, mouse and selection code. Also wanted for syntax highlighting.

@@ -668,6 +668,7 @@ begin
     '!': if not PlainRefuses('Breakpoints') then InsertAtCursor(CH_BREAK);
     'T': TogglePlain;
     'G': ToggleSyntax;
+    'P': PickLanguage;
   else
     SetMsg('Control ' + ch + ' is not a TiePaper command (F1 lists them)', True);
   end;

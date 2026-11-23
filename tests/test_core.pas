@@ -147,6 +147,36 @@ begin
   CheckEq(S8(d[0]), 'abc', 'undo restores text');
   Check(d.Redo, 'redo available');
   CheckEq(S8(d[0]), 'abcdef', 'redo');
+  { colouring cache: DirtyFrom tracks the lowest paragraph an edit touched, not the whole file,
+    so syntax colouring need not retokenize from the start after every keystroke }
+  d.Clear;
+  d.SetText('a'#10'b'#10'c'#10'd'#10'e');
+  CheckInt(d.DirtyFrom, 0, 'DirtyFrom starts at 0 after a full load');
+  d.DirtyFrom := MaxInt;
+  d[2] := 'C';
+  CheckInt(d.DirtyFrom, 2, 'SetLine marks only its own paragraph dirty');
+  d.DirtyFrom := MaxInt;
+  d.InsText(3, 0, 'X');
+  CheckInt(d.DirtyFrom, 3, 'InsText marks only its own paragraph dirty');
+  d.DirtyFrom := MaxInt;
+  d.SplitPara(1, 1);
+  CheckInt(d.DirtyFrom, 1, 'SplitPara marks from the split paragraph');
+  d.DirtyFrom := MaxInt;
+  d.JoinPara(0);
+  CheckInt(d.DirtyFrom, 0, 'JoinPara marks from the joined paragraph');
+  d.DirtyFrom := MaxInt;
+  d.DelParas(4, 1);
+  CheckInt(d.DirtyFrom, 4, 'DelParas marks from the deleted paragraph');
+  d.DirtyFrom := MaxInt;
+  d.ReplaceText(2, 'zzz');
+  CheckInt(d.DirtyFrom, 2, 'ReplaceText marks only its own paragraph dirty');
+  d.DirtyFrom := MaxInt;
+  d.InsPara(1, 'new');
+  CheckInt(d.DirtyFrom, 1, 'InsPara marks from the inserted paragraph');
+  d.DirtyFrom := MaxInt;
+  d[3] := 'x';
+  d[1] := 'y';
+  CheckInt(d.DirtyFrom, 1, 'DirtyFrom keeps the lowest paragraph touched across edits');
   d.Free;
 end;
 

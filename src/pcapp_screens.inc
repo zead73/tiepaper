@@ -520,7 +520,8 @@ begin
   t.Add('Ctrl+Shift+T|Switch between plain text and PaperClip mode for this document (going to PaperClip mode turns tabs into spaces)');
   t.Add('Tab|Spaces up to the next multiple of the tab width (4; set tabwidth in the [editing] section of tiepaper.ini)');
   t.Add('Ctrl+Tab|A real tab character, which shows as an arrow one cell wide');
-  t.Add('Ctrl+Shift+G|Syntax colouring on / off.  The file name picks the language: .pas .pp .lpr .inc (Pascal), .c .h .cpp .hpp (C), .rs (Rust), .py (Python), .sh and #! scripts (shell), .conf .cfg .ini .service fstab Makefile (config).  The status line names it.  Only the colours change, never the text; the colours are the syntax_ entries under [colors] in tiepaper.ini.');
+  t.Add('Ctrl+Shift+G|Syntax colouring on / off.  The file name picks the language: .pas .pp .lpr .inc (Pascal), .c .h .cpp .hpp .cs (C, C++, C#), .rs (Rust), .go (Go), .java (Java), .js .jsx (JavaScript), .lua (Lua), .html .htm (HTML), .md (Markdown), .sql (SQL), .py (Python), .sh and #! scripts (shell), .conf .cfg .ini .service fstab Makefile (config).  The status line names it.  Only the colours change, never the text; the colours are the syntax_ entries under [colors] in tiepaper.ini.');
+  t.Add('Ctrl+Shift+P|Step through the languages by hand, for a file whose name does not pick one; turns colouring on if it was off.  Steps back to automatic after the last language.');
   t.Add('In plain text mode these do not apply: print marks (Alt+B, Alt+I, Alt+U, Esc codes), format lines (the backslash is a backslash), tab stops, line length and the return markers.  The status line shows PLAIN, and CRLF or LATIN-1 when the file uses them.');
   t.Add('A new, untitled document is a PaperClip document; press Ctrl+Shift+T to make it plain text.  Saving under another name does not change the mode, but the next time the file is opened its name decides.');
   t.Add('');

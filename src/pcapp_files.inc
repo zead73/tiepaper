@@ -66,6 +66,7 @@ begin
   NumMode := False;
   FlashP := -1;
   WantCol := -1;
+  LangOverride := lnNone;
   UpdateTitle;
   if not quiet then
   begin

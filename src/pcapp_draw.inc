@@ -196,26 +196,40 @@ function TApp.CurrentLang: TLang;
 begin
   Result := lnNone;
   if (not Doc.Plain) or (not Cfg.Syntax) then Exit;
+  if LangOverride <> lnNone then Exit(LangOverride);
   if Doc.FileName = '' then Exit;
   Result := LangFor(Doc.FileName, Doc[0]);
 end;
 
-{ makes HlState[p] right for every paragraph up to lastPara: the state a paragraph starts in }
+{ makes HlState[p] right for every paragraph up to lastPara: the state a paragraph starts in.
+  Only reworks paragraphs from Doc.DirtyFrom on, not the whole file on every keystroke. }
 procedure TApp.HlPrepare(lastPara: Integer);
 var
   lang: TLang;
+  from: Integer;
 begin
   lang := CurrentLang;
-  if (not HlValid) or (lang <> HlLang) or (HlRev <> Doc.Rev) or (Length(HlState) < Doc.Count + 2) then
+  if (not HlValid) or (lang <> HlLang) then
   begin
     HlLang := lang;
-    HlRev := Doc.Rev;
     HlValid := True;
     SetLength(HlState, Doc.Count + 2);
     HlState[0] := 0;
     HlUpTo := 0;
     HlPara := -1;
+  end
+  else
+  begin
+    if Length(HlState) < Doc.Count + 2 then SetLength(HlState, Doc.Count + 2);
+    from := Doc.DirtyFrom;
+    if from < HlUpTo then
+    begin
+      if from < 0 then from := 0;
+      HlUpTo := from;
+      HlPara := -1;
+    end;
   end;
+  Doc.DirtyFrom := MaxInt;
   if lastPara >= Doc.Count then lastPara := Doc.Count - 1;
   while HlUpTo <= lastPara do
   begin
@@ -243,7 +257,25 @@ begin
   HlValid := False;
   if not Cfg.Syntax then SetMsg('Syntax colouring off for every file (Ctrl+Shift+G turns it back on)')
   else if CurrentLang <> lnNone then SetMsg(UnicodeString('Syntax colouring on: ' + LangName(CurrentLang)))
-  else SetMsg('Syntax colouring on (this file has no language; the name decides: .pas .c .rs .py .sh .conf ...)');
+  else SetMsg('Syntax colouring on (this file has no language; the name decides, or pick one with Ctrl+Shift+P)');
+end;
+
+{ Ctrl+Shift+P: step through the available languages by hand, for a file whose name does not pick one }
+procedure TApp.PickLanguage;
+begin
+  if not Doc.Plain then
+  begin
+    SetMsg('Colouring is for plain text mode (Ctrl+Shift+T switches to it)', True);
+    Exit;
+  end;
+  if LangOverride = High(TLang) then LangOverride := lnNone else LangOverride := Succ(LangOverride);
+  HlValid := False;
+  Cfg.Syntax := True;
+  if LangOverride = lnNone then
+    SetMsg('Language: automatic from the file name (Ctrl+Shift+P steps on, Ctrl+Shift+G turns colouring off)')
+  else
+    SetMsg(UnicodeString('Language: ' + LangName(LangOverride) +
+      ' (Ctrl+Shift+P steps on, Ctrl+Shift+G turns colouring off)'));
 end;
 
 { Ctrl+B, Alt+B / Alt+I / Alt+U.  With a phrase set the phrase is wrapped in the marks; otherwise
