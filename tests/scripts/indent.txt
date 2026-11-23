@@ -1,0 +1,19 @@
+size 900 600
+open build/test-out/indent.txt
+key end
+key return
+text a
+key down
+key end
+key return
+text b
+key down
+key end
+key return
+text c
+key ctrl+home
+key right
+key return
+text d
+dump build/test-out/indent_out.txt
+quit

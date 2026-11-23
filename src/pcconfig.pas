@@ -41,6 +41,7 @@ type
     FontDir: string;             { empty = look in the usual places }
     ShowReturn: Boolean;
     WrapView: Boolean;
+    AutoIndent: Boolean;         { plain text mode: Return starts the new line with the old line's indent }
     TabWidth: Integer;           { plain text mode: the Tab key inserts spaces up to a multiple of this }
     Paper: Integer;              { 0 = Letter, 1 = A4 }
     WinW, WinH: Integer;
@@ -88,6 +89,7 @@ begin
   s.ShowReturn := True;
   s.WrapView := True;
   s.TabWidth := 4;
+  s.AutoIndent := True;
   s.Paper := 0;
   s.WinW := 1100;
   s.WinH := 760;
@@ -188,6 +190,7 @@ begin
     s.FontDir := ini.ReadString('display', 'fontdir', s.FontDir);
     s.ShowReturn := ini.ReadBool('display', 'showreturn', s.ShowReturn);
     s.WrapView := ini.ReadBool('display', 'wrap', s.WrapView);
+    s.AutoIndent := ini.ReadBool('editing', 'autoindent', s.AutoIndent);
     s.TabWidth := Clamp(ini.ReadInteger('editing', 'tabwidth', s.TabWidth), 1, 16);
     s.Paper := Clamp(ini.ReadInteger('output', 'paper', s.Paper), 0, 1);
     s.WinW := Clamp(ini.ReadInteger('window', 'width', s.WinW), 400, 8000);
@@ -222,6 +225,7 @@ begin
     ini.WriteBool('display', 'showreturn', s.ShowReturn);
     ini.WriteBool('display', 'wrap', s.WrapView);
     ini.WriteInteger('editing', 'tabwidth', s.TabWidth);
+    ini.WriteBool('editing', 'autoindent', s.AutoIndent);
     ini.WriteInteger('output', 'paper', s.Paper);
     ini.WriteInteger('window', 'width', s.WinW);
     ini.WriteInteger('window', 'height', s.WinH);

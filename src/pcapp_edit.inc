@@ -246,7 +246,8 @@ end;
 
 procedure TApp.DoReturn;
 var
-  rest: Integer;
+  rest, n: Integer;
+  line, indent: UnicodeString;
 begin
   NumMode := False;
   Doc.PushUndo(0);
@@ -256,7 +257,17 @@ begin
     rest := Length(Doc[Doc.CurP]) - Doc.CurC;
     if rest > 0 then Doc.DelText(Doc.CurP, Doc.CurC, rest);
   end;
+  indent := '';
+  if Doc.Plain and Cfg.AutoIndent then
+  begin
+    { the new line starts with the spaces and tabs the old one starts with, as far as the cursor is past them }
+    line := Doc[Doc.CurP];
+    n := 0;
+    while (n < Length(line)) and (n < Doc.CurC) and ((line[n + 1] = ' ') or (line[n + 1] = #9)) do Inc(n);
+    indent := Copy(line, 1, n);
+  end;
   Doc.SplitPara(Doc.CurP, Doc.CurC);
+  if indent <> '' then Doc.InsText(Doc.CurP, 0, indent);
   WantCol := -1;
 end;
 

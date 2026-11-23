@@ -18,7 +18,7 @@
 6. **Plain mode rough edges.**
    - Characters outside the Basic Multilingual Plane (emoji) are two UTF-16 cells shown as two `?`; they save
      correctly if left alone, but deleting one half breaks them.
-   - Optional auto-indent on Return.
+   - ~~Optional auto-indent on Return.~~ Done (2026-11-23): `[editing] autoindent`, default on, plain mode only.
    - Offer to open a new untitled document as plain text.
 
 Not planned: mail merge, form letters, telecommunications, disk-drive commands, printer files.
