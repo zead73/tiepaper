@@ -41,9 +41,12 @@ begin
 end;
 
 procedure TApp.CursorRowCol(out row, col: Integer);
+var
+  charCol: Integer;
 begin
   LayoutNow;
-  Doc.PosToRowCol(Doc.CurP, Doc.CurC, row, col);
+  Doc.PosToRowCol(Doc.CurP, Doc.CurC, row, charCol);
+  col := CharColToScreenCol(Doc[Doc.CurP], Doc.RowStart(row), charCol, Cfg.TabWidth);
 end;
 
 procedure TApp.EnsureCursorVisible;
@@ -324,9 +327,11 @@ end;
 procedure TApp.DrawEditor;
 var
   i, r, p, st, ln, k, col, idx, absCol, cRow, cCol, lo, hi, loc, hic, rows: Integer;
+  tw, sc, dc, scv: Integer;
   s: UnicodeString;
   isDir, lastRow: Boolean;
   state: array of Byte;
+  scCol, rowIdx: array of Integer;
   textC, backC, dirC, markC_, retC, softC, flashC: LongWord;
   fg, mfg, dfg: LongWord;
   attr, eff: Byte;
@@ -350,6 +355,9 @@ begin
   softC := MixColor(backC, textC, 24);
   flashC := dirC;
   SetLength(state, Gfx.Cols + 1);
+  SetLength(rowIdx, Gfx.Cols + 1);
+  tw := Cfg.TabWidth;
+  if tw < 1 then tw := 1;
   rows := TextRows;
   lang := CurrentLang;
   if lang <> lnNone then
@@ -371,11 +379,32 @@ begin
     ln := Doc.RowLen(r);
     lastRow := (r = Doc.ParaFirstRow(p + 1) - 1);
     isDir := IsFormatLine(s) and (not Doc.Plain);
+    { screen column of each character in this row (tabs may span several cells),
+      and which character (if any) sits under each visible draw column }
+    if Length(scCol) < ln + 1 then SetLength(scCol, ln + 65);
+    sc := 0;
+    for k := 0 to ln - 1 do
+    begin
+      scCol[k] := sc;
+      if s[st + k + 1] = #9 then sc := ((sc div tw) + 1) * tw else Inc(sc);
+    end;
+    scCol[ln] := sc;
+    for k := 0 to ln - 1 do
+      for scv := scCol[k] to scCol[k + 1] - 1 do
+      begin
+        dc := scv - LeftCol;
+        if (dc >= 0) and (dc < Gfx.Cols) then rowIdx[dc] := st + k;
+      end;
+    for dc := 0 to Gfx.Cols - 1 do
+    begin
+      scv := dc + LeftCol;
+      if scv >= scCol[ln] then rowIdx[dc] := st + ln + (scv - scCol[ln]);
+    end;
     { work out which cells are highlighted }
     for col := 0 to Gfx.Cols - 1 do
     begin
       absCol := col + LeftCol;
-      idx := st + absCol;
+      idx := rowIdx[col];
       state[col] := 0;
       if Doc.RangeSet and (p >= Doc.RangeP1) and (p <= Doc.RangeP2) then state[col] := 2;
       if Doc.PhraseSet and (p = Doc.PhP) and (idx >= Doc.PhC1) and (idx < Doc.PhC2) then state[col] := 2;
@@ -430,7 +459,7 @@ begin
         if ch = CH_SUP_NEXT then nextSup := True
         else if ch = CH_SUB_NEXT then nextSub := True;
       end;
-      col := k - LeftCol;
+      col := scCol[k] - LeftCol;
       if (col < 0) or (col >= Gfx.Cols) then Continue;
       fg := textC; mfg := markC_; dfg := dirC;
       if isDir then fg := dirC;
@@ -466,7 +495,7 @@ begin
     end;
     if lastRow and Cfg.ShowReturn and (not Doc.Plain) then
     begin
-      col := ln - LeftCol;
+      col := scCol[ln] - LeftCol;
       if (col >= 0) and (col < Gfx.Cols) then
       begin
         fg := retC;

@@ -83,6 +83,32 @@ begin
   CheckInt(starts[1], 5, 'second word starts after hanging space');
 end;
 
+procedure TestTabCol;
+var
+  s: UnicodeString;
+begin
+  { "a\tbb\tc": a=col0, tab->col4, bb=col4-5, tab->col8, c=col8 (tab width 4) }
+  s := U('a' + #9 + 'bb' + #9 + 'c');
+  CheckInt(CharColToScreenCol(s, 0, 0, 4), 0, 'tab: screen col of first char');
+  CheckInt(CharColToScreenCol(s, 0, 1, 4), 1, 'tab: screen col right after "a"');
+  CheckInt(CharColToScreenCol(s, 0, 2, 4), 4, 'tab: screen col after first tab stop');
+  CheckInt(CharColToScreenCol(s, 0, 4, 4), 6, 'tab: screen col after "bb"');
+  CheckInt(CharColToScreenCol(s, 0, 5, 4), 8, 'tab: screen col after second tab stop');
+  CheckInt(CharColToScreenCol(s, 0, 6, 4), 9, 'tab: screen col after "c"');
+  { a tab that lands exactly on a stop still advances a full width }
+  CheckInt(CharColToScreenCol(U(#9 + #9), 0, 2, 4), 8, 'tab: two tabs from column 0 reach column 8');
+  { reverse mapping: char offset for a given screen column, with midpoint rounding inside a tab }
+  CheckInt(ScreenColToCharCol(s, 0, 6, 0, 4), 0, 'tab: screen col 0 is "a"');
+  CheckInt(ScreenColToCharCol(s, 0, 6, 1, 4), 1, 'tab: screen col 1 is the tab');
+  CheckInt(ScreenColToCharCol(s, 0, 6, 2, 4), 1, 'tab: screen col 2 (left half of tab) rounds back to the tab');
+  CheckInt(ScreenColToCharCol(s, 0, 6, 3, 4), 2, 'tab: screen col 3 (right half of tab) rounds to the next char');
+  CheckInt(ScreenColToCharCol(s, 0, 6, 4, 4), 2, 'tab: screen col 4 is "b"');
+  CheckInt(ScreenColToCharCol(s, 0, 6, 9, 4), 6, 'tab: screen col at end of row is end of row');
+  CheckInt(ScreenColToCharCol(s, 0, 6, 20, 4), 17, 'tab: screen col past the row overshoots by the same amount');
+  { round trip for every character offset in a tab-heavy line }
+  CheckInt(ScreenColToCharCol(s, 0, 6, CharColToScreenCol(s, 0, 3, 4), 4), 3, 'tab: round trip mid-tab-run');
+end;
+
 procedure TestDoc;
 var
   d: TDoc;
@@ -711,6 +737,7 @@ begin
   Fails := 0;
   Passes := 0;
   TestWrap;
+  TestTabCol;
   TestDoc;
   TestSearch;
   TestFormatterBasics;

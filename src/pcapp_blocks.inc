@@ -23,7 +23,7 @@ function TApp.RunSelect(kind: Integer; deleteAfter: Boolean): Boolean;
 var
   ev: TKeyEv;
   s: UnicodeString;
-  i, lo, hi, loc, hic, k, p: Integer;
+  i, lo, hi, loc, hic, k, p, c1, c2: Integer;
   startC, startP: Integer;
   ch: WideChar;
   ok: Boolean;
@@ -57,6 +57,13 @@ begin
       end;
   end;
   width := LayoutWidth;
+  if kind = 3 then
+  begin
+    { SelCol0/SelCol1 are screen columns (tabs may widen them), so the right
+      edge of the column must be the row's screen width, not its char count }
+    p := Doc.RowPara(SelRow0);
+    width := CharColToScreenCol(Doc[p], Doc.RowStart(SelRow0), Doc.RowLen(SelRow0), Cfg.TabWidth);
+  end;
   try
     while WaitKey(ev) do
     begin
@@ -153,10 +160,15 @@ begin
                     Doc.ColSet := True;
                     Doc.ColP1 := Doc.RowPara(lo);
                     Doc.ColP2 := Doc.RowPara(hi);
-                    Doc.ColC1 := loc;
-                    Doc.ColC2 := hic + 1;
+                    { loc/hic are screen columns; ColC1/ColC2 are character offsets
+                      (pccolumns.pas slices the text with them), so convert using
+                      the anchor row's own tab layout }
+                    c1 := ScreenColToCharCol(Doc[Doc.ColP1], Doc.RowStart(lo), Doc.RowLen(lo), loc, Cfg.TabWidth);
+                    c2 := ScreenColToCharCol(Doc[Doc.ColP1], Doc.RowStart(lo), Doc.RowLen(lo), hic, Cfg.TabWidth) + 1;
+                    Doc.ColC1 := c1;
+                    Doc.ColC2 := c2;
                     Doc.CurP := Doc.ColP1;
-                    Doc.CurC := loc;
+                    Doc.CurC := c1;
                     if Doc.CurC > Length(Doc[Doc.CurP]) then Doc.CurC := Length(Doc[Doc.CurP]);
                     SetMsg(UnicodeString(Format('Column set: %d line(s), %d wide', [hi - lo + 1, hic - loc + 1])));
                     Result := True;

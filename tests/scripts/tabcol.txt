@@ -1,0 +1,12 @@
+size 900 600
+open build/test-out/tabcol.txt
+key right
+key right
+key right
+key right
+key down
+text !
+key ctrl+s
+key return
+dump build/test-out/tabcol_out.txt
+quit

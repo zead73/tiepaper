@@ -154,6 +154,12 @@ function DecodeText(const raw: RawByteString): UnicodeString;
 procedure WrapPara(const s: UnicodeString; w: Integer; var starts: TIntArray; var cnt: Integer);
 function Latin1Fold(const s: UnicodeString): UnicodeString;
 
+{ screen column (tabs expand to the next multiple of tabWidth) versus character
+  offset within a row, both counted from rowStart; charCol/the result are
+  0-based and relative to the row, same convention as PosToRowCol/RowColToPos }
+function CharColToScreenCol(const s: UnicodeString; rowStart, charCol, tabWidth: Integer): Integer;
+function ScreenColToCharCol(const s: UnicodeString; rowStart, rowLen, screenCol, tabWidth: Integer): Integer;
+
 implementation
 
 {$IFDEF UNIX}
@@ -293,6 +299,46 @@ begin
     end;
     st := k;
   until st >= n;
+end;
+
+function CharColToScreenCol(const s: UnicodeString; rowStart, charCol, tabWidth: Integer): Integer;
+var
+  k, tw, maxCol: Integer;
+begin
+  tw := tabWidth;
+  if tw < 1 then tw := 1;
+  { a caller's charCol can momentarily outrun the row (e.g. a cursor left behind
+    by an edit that shortened the line); clamp rather than index past the text }
+  maxCol := Length(s) - rowStart;
+  if charCol > maxCol then charCol := maxCol;
+  if charCol < 0 then charCol := 0;
+  Result := 0;
+  for k := 0 to charCol - 1 do
+    if s[rowStart + k + 1] = #9 then Result := ((Result div tw) + 1) * tw
+    else Inc(Result);
+end;
+
+function ScreenColToCharCol(const s: UnicodeString; rowStart, rowLen, screenCol, tabWidth: Integer): Integer;
+var
+  k, tw, sc, next, maxLen: Integer;
+begin
+  tw := tabWidth;
+  if tw < 1 then tw := 1;
+  maxLen := Length(s) - rowStart;
+  if rowLen > maxLen then rowLen := maxLen;
+  if rowLen < 0 then rowLen := 0;
+  sc := 0;
+  for k := 0 to rowLen - 1 do
+  begin
+    if s[rowStart + k + 1] = #9 then next := ((sc div tw) + 1) * tw else next := sc + 1;
+    if screenCol < next then
+    begin
+      { a click inside a tab's expanded span resolves to whichever side it is nearer }
+      if screenCol > (sc + next) div 2 then Exit(k + 1) else Exit(k);
+    end;
+    sc := next;
+  end;
+  Result := rowLen + (screenCol - sc);
 end;
 
 { TDoc }

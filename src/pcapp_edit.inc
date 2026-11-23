@@ -90,10 +90,14 @@ end;
 
 procedure TApp.MoveToRowCol(row, col: Integer);
 var
-  p, c: Integer;
+  p, c, charCol: Integer;
 begin
   LayoutNow;
-  Doc.RowColToPos(row, col, p, c);
+  if row < 0 then row := 0;
+  if row > Doc.RowCount - 1 then row := Doc.RowCount - 1;
+  p := Doc.RowPara(row);
+  charCol := ScreenColToCharCol(Doc[p], Doc.RowStart(row), Doc.RowLen(row), col, Cfg.TabWidth);
+  Doc.RowColToPos(row, charCol, p, c);
   Doc.CurP := p;
   Doc.CurC := c;
 end;
@@ -949,7 +953,7 @@ end;
 
 function TApp.PixelToPos(x, y: Integer; out p, c: Integer): Boolean;
 var
-  col, row: Integer;
+  col, row, screenCol, charCol: Integer;
 begin
   Result := False;
   LayoutNow;
@@ -963,7 +967,10 @@ begin
   if row < 0 then row := 0;
   if row >= Doc.RowCount then row := Doc.RowCount - 1;
   if col + LeftCol < 0 then col := -LeftCol;
-  Doc.RowColToPos(row, col + LeftCol, p, c);
+  screenCol := col + LeftCol;
+  p := Doc.RowPara(row);
+  charCol := ScreenColToCharCol(Doc[p], Doc.RowStart(row), Doc.RowLen(row), screenCol, Cfg.TabWidth);
+  Doc.RowColToPos(row, charCol, p, c);
   Result := True;
 end;
 
