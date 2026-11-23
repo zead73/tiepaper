@@ -34,6 +34,13 @@ fi
 if [ -f build/test-out/sl_plain.txt ] && head -c 40 build/test-out/sl_plain.txt | grep -q PAPERCLIP; then
   echo "FAIL: sl_plain.txt should be plain text"; fail=1
 fi
+# files the plain text mode saved must be exactly what was typed, bytes and all
+for f in tests/expected/files/*; do
+  n=$(basename "$f")
+  if ! cmp -s "$f" "build/test-out/$n"; then
+    echo "FAIL: saved file $n differs"; cmp "$f" "build/test-out/$n" | head -2; fail=1
+  fi
+done
 for f in tests/expected/*.txt; do
   n=$(basename "$f")
   [ "$n" = spell.txt ] && [ $have_spell = no ] && continue

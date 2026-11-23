@@ -101,6 +101,19 @@ end;
 { Draws one character cell of document text: markers get their own shapes. }
 procedure DrawDocChar(app: TApp; col, row: Integer; ch: WideChar; fg, markFg, dirFg: LongWord);
 begin
+  if app.Doc.Plain then
+  begin
+    { plain text: characters are what they are; the ones you cannot see are made visible }
+    case ch of
+      #9: if app.Gfx.HasGlyph(#$2192) then app.Gfx.PutChar(col, row, #$2192, ST_REGULAR, markFg)
+          else app.Gfx.PutChar(col, row, '>', ST_REGULAR, markFg);
+      #0..#8, #10..#31, #$7F, #$D800..#$DFFF, #$E000..#$F8FF: app.Gfx.PutChar(col, row, '?', ST_REGULAR, markFg);
+      CH_HARDSPACE, ' ': ;
+    else
+      app.Gfx.PutChar(col, row, ch, ST_REGULAR, fg);
+    end;
+    Exit;
+  end;
   case ch of
     ' ': ;
     CH_HARDSPACE: app.Gfx.DrawBar(col, row, 0, markFg);
@@ -142,6 +155,14 @@ begin
   if StyleValid and (StyleRev = Doc.Rev) and (Length(ParaStyle) >= Doc.Count) then Exit;
   SetLength(ParaStyle, Doc.Count + 1);
   st := 0;
+  if Doc.Plain then
+  begin
+    { no print enhancements in plain text }
+    for p := 0 to Doc.Count do ParaStyle[p] := 0;
+    StyleRev := Doc.Rev;
+    StyleValid := True;
+    Exit;
+  end;
   for p := 0 to Doc.Count - 1 do
   begin
     ParaStyle[p] := st;
@@ -160,12 +181,69 @@ var
   s: UnicodeString;
 begin
   EnsureStyleCache;
-  if (p < 0) or (p >= Doc.Count) then Exit(0);
+  if Doc.Plain or (p < 0) or (p >= Doc.Count) then Exit(0);
   Result := ParaStyle[p];
   s := Doc[p];
   if IsFormatLine(s) then Exit(0);
   for i := 1 to c do
     if i <= Length(s) then ApplyStyleMark(Result, s[i]);
+end;
+
+{ ---- syntax colouring (plain text mode only; the text is never touched) ---- }
+
+{ the language colouring this document, or lnNone }
+function TApp.CurrentLang: TLang;
+begin
+  Result := lnNone;
+  if (not Doc.Plain) or (not Cfg.Syntax) then Exit;
+  if Doc.FileName = '' then Exit;
+  Result := LangFor(Doc.FileName, Doc[0]);
+end;
+
+{ makes HlState[p] right for every paragraph up to lastPara: the state a paragraph starts in }
+procedure TApp.HlPrepare(lastPara: Integer);
+var
+  lang: TLang;
+begin
+  lang := CurrentLang;
+  if (not HlValid) or (lang <> HlLang) or (HlRev <> Doc.Rev) or (Length(HlState) < Doc.Count + 2) then
+  begin
+    HlLang := lang;
+    HlRev := Doc.Rev;
+    HlValid := True;
+    SetLength(HlState, Doc.Count + 2);
+    HlState[0] := 0;
+    HlUpTo := 0;
+    HlPara := -1;
+  end;
+  if lastPara >= Doc.Count then lastPara := Doc.Count - 1;
+  while HlUpTo <= lastPara do
+  begin
+    HlState[HlUpTo + 1] := HighlightLine(HlLang, Doc[HlUpTo], HlState[HlUpTo], HlScratch);
+    Inc(HlUpTo);
+  end;
+end;
+
+{ the classes of paragraph p's characters, in HlCls (kept while the same paragraph is drawn again) }
+procedure TApp.HlLoadPara(p: Integer);
+begin
+  if HlPara = p then Exit;
+  HighlightLine(HlLang, Doc[p], HlState[p], HlCls);
+  HlPara := p;
+end;
+
+procedure TApp.ToggleSyntax;
+begin
+  if not Doc.Plain then
+  begin
+    SetMsg('Colouring is for plain text mode (Ctrl+Shift+T switches to it)', True);
+    Exit;
+  end;
+  Cfg.Syntax := not Cfg.Syntax;
+  HlValid := False;
+  if not Cfg.Syntax then SetMsg('Syntax colouring off for every file (Ctrl+Shift+G turns it back on)')
+  else if CurrentLang <> lnNone then SetMsg(UnicodeString('Syntax colouring on: ' + LangName(CurrentLang)))
+  else SetMsg('Syntax colouring on (this file has no language; the name decides: .pas .c .rs .py .sh .conf ...)');
 end;
 
 { Ctrl+B, Alt+B / Alt+I / Alt+U.  With a phrase set the phrase is wrapped in the marks; otherwise
@@ -183,6 +261,7 @@ begin
   else
     begin onM := CH_UL_ON; offM := CH_UL_OFF; bit := A_UL; nm := 'Underline'; end;
   end;
+  if PlainRefuses('Bold, italics and underline') then Exit;
   Doc.PushUndo(0);
   if SelActive and SelBounds(l1, l2, h1, h2) then
   begin
@@ -224,6 +303,8 @@ var
   ch: WideChar;
   selOn: Boolean;
   slP, slC, shP, shC: Integer;
+  lang: TLang;
+  synC: array[1..6] of LongWord;
 begin
   LayoutNow;
   EnsureCursorVisible;
@@ -238,6 +319,15 @@ begin
   flashC := dirC;
   SetLength(state, Gfx.Cols + 1);
   rows := TextRows;
+  lang := CurrentLang;
+  if lang <> lnNone then
+  begin
+    for k := 1 to 6 do synC[k] := RGBOf(Cfg.ColSyntax[k]);
+    r := TopRow + rows - 1;
+    if r >= Doc.RowCount then r := Doc.RowCount - 1;
+    if r < 0 then r := 0;
+    HlPrepare(Doc.RowPara(r));
+  end;
   selOn := SelActive and SelBounds(slP, slC, shP, shC);
   for i := 0 to rows - 1 do
   begin
@@ -248,7 +338,7 @@ begin
     st := Doc.RowStart(r);
     ln := Doc.RowLen(r);
     lastRow := (r = Doc.ParaFirstRow(p + 1) - 1);
-    isDir := IsFormatLine(s);
+    isDir := IsFormatLine(s) and (not Doc.Plain);
     { work out which cells are highlighted }
     for col := 0 to Gfx.Cols - 1 do
     begin
@@ -289,8 +379,9 @@ begin
         3: Gfx.FillCells(col, TextTop + i, 1, 1, flashC);
       end;
     { the style in force where this row begins }
+    if lang <> lnNone then HlLoadPara(p);
     attr := 0;
-    if not isDir then
+    if (not isDir) and (not Doc.Plain) then
     begin
       attr := ParaStyle[p];
       for k := 1 to st do ApplyStyleMark(attr, s[k]);
@@ -301,7 +392,7 @@ begin
     begin
       idx := st + k;
       ch := s[idx + 1];
-      if not isDir then
+      if (not isDir) and (not Doc.Plain) then
       begin
         ApplyStyleMark(attr, ch);
         if ch = CH_SUP_NEXT then nextSup := True
@@ -311,6 +402,7 @@ begin
       if (col < 0) or (col >= Gfx.Cols) then Continue;
       fg := textC; mfg := markC_; dfg := dirC;
       if isDir then fg := dirC;
+      if (lang <> lnNone) and (HlCls[idx] > 0) then fg := synC[HlCls[idx]];
       if state[col] in [1, 3] then begin fg := backC; mfg := backC; dfg := backC; end;
       eff := 0;
       if (not isDir) and (not IsMarkerChar(ch)) and (ch <> CH_ULCHAR) then
@@ -340,7 +432,7 @@ begin
         if (eff and A_UL) <> 0 then Gfx.HLine(col, TextTop + i, 1, Gfx.CellH - 3, fg);
       end;
     end;
-    if lastRow and Cfg.ShowReturn then
+    if lastRow and Cfg.ShowReturn and (not Doc.Plain) then
     begin
       col := ln - LeftCol;
       if (col >= 0) and (col < Gfx.Cols) then
@@ -410,6 +502,13 @@ begin
   if not Cfg.WrapView then right := 'NOWRAP ' + right;
   if CtrlMode then right := 'CTRL ' + right;
   if EscMode then right := 'ESC ' + right;
+  if Doc.Plain then
+  begin
+    if Doc.CRLF then right := 'CRLF ' + right;
+    if Doc.Enc = teLatin1 then right := 'LATIN-1 ' + right;
+    if CurrentLang <> lnNone then right := UnicodeString(UpperCase(LangName(CurrentLang))) + ' ' + right;
+    right := 'PLAIN ' + right;
+  end;
   Gfx.PutText(0, 0, left, backC, ST_BOLD);
   Gfx.PutText(Gfx.Cols - Length(right), 0, right, backC, ST_REGULAR);
 end;
@@ -436,7 +535,7 @@ begin
   for col := 0 to Gfx.Cols - 1 do
   begin
     absCol := col + LeftCol;
-    if absCol <= MAXWIDTH then
+    if (absCol <= MAXWIDTH) and (not Doc.Plain) then
     begin
       if (Doc.Tabs[absCol] and TAB_NUM) <> 0 then
       begin

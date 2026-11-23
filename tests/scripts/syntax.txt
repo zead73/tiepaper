@@ -1,0 +1,20 @@
+size 900 600
+open build/test-out/syntax.pas
+shot build/test-out/syntax_screen.png
+key ctrl+end
+key return
+text  // edited
+key ctrl+s
+key return
+dump build/test-out/syntax_a.txt
+open build/test-out/syntax.rs
+shot build/test-out/syntax_rs.png
+key ctrl+end
+key return
+text // edited
+key ctrl+s
+key return
+dump build/test-out/syntax_b.txt
+key ctrl+shift+g
+shot build/test-out/syntax_off.png
+quit

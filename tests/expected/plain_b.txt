@@ -1,0 +1,8 @@
+# sample config
+name = value
+path = C:\temp\x
+\a=notformat
+✓ju on
+	indented with a tab
+last line
+new \ line  x	y

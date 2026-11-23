@@ -398,6 +398,7 @@ procedure BuildHelp(t: TStringList);
 begin
   t.Clear;
   t.Add('#TiePaper works like PaperClip II');
+  t.Add('(For editing config files and source code, see "Plain text mode" below.)');
   t.Add('You type plain text and add formatting instructions to it.  The screen shows exactly what you type.  A left arrow marks the end of each paragraph (the "return marker").');
   t.Add('Formatting instructions go on their own lines that start with a checkmark: type a backslash (\) to make it.  Preview with Ctrl+V, output with Ctrl+O.');
   t.Add('Control keys: hold Ctrl and press the key, or tap and release Ctrl and then press the key.  Capitals mean Ctrl+Shift.');
@@ -513,7 +514,15 @@ begin
   t.Add('F1|This help');
   t.Add('Ctrl+Shift+X|Quit');
   t.Add('');
-  t.Add('Names ending in .txt are saved as plain text; anything else keeps tabs and line length.');
+  t.Add('');
+  t.Add('#Plain text mode (config files, source code)');
+  t.Add('A file named .pcl is a PaperClip document.  Every other file is opened as plain text and saved exactly as it was: its own line endings (LF or CR LF), final newline and encoding, and its tabs, backslashes and every other character, with no header line.  A file with NUL bytes (a binary file) is refused.  Symbolic links and permissions are kept when you save.');
+  t.Add('Ctrl+Shift+T|Switch between plain text and PaperClip mode for this document (going to PaperClip mode turns tabs into spaces)');
+  t.Add('Tab|Spaces up to the next multiple of the tab width (4; set tabwidth in the [editing] section of tiepaper.ini)');
+  t.Add('Ctrl+Tab|A real tab character, which shows as an arrow one cell wide');
+  t.Add('Ctrl+Shift+G|Syntax colouring on / off.  The file name picks the language: .pas .pp .lpr .inc (Pascal), .c .h .cpp .hpp (C), .rs (Rust), .py (Python), .sh and #! scripts (shell), .conf .cfg .ini .service fstab Makefile (config).  The status line names it.  Only the colours change, never the text; the colours are the syntax_ entries under [colors] in tiepaper.ini.');
+  t.Add('In plain text mode these do not apply: print marks (Alt+B, Alt+I, Alt+U, Esc codes), format lines (the backslash is a backslash), tab stops, line length and the return markers.  The status line shows PLAIN, and CRLF or LATIN-1 when the file uses them.');
+  t.Add('A new, untitled document is a PaperClip document; press Ctrl+Shift+T to make it plain text.  Saving under another name does not change the mode, but the next time the file is opened its name decides.');
   t.Add('');
   t.Add('#Format instructions');
   t.Add('Each goes on a line that starts with a checkmark; join several with colons.');

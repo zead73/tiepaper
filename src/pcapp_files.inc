@@ -35,21 +35,25 @@ var
 begin
   Result := '';
   s := Doc[0];
-  if IsFormatLine(s) and (Length(s) >= 4) and (LowerCase(Copy(s, 2, 2)) = 'cm') then
+  if (not Doc.Plain) and IsFormatLine(s) and (Length(s) >= 4) and (LowerCase(Copy(s, 2, 2)) = 'cm') then
   begin
     Result := Trim(UTF8Encode(Copy(s, 4, MaxInt)));
     if (Result <> '') and (Result[1] = ':') then Delete(Result, 1, 1);
     Result := Trim(Result);
   end;
   if (Result = '') and (Doc.FileName <> '') then Result := ExtractFileName(Doc.FileName);
-  if Result = '' then Result := 'untitled.pcl';
+  if Result = '' then
+    if Doc.Plain then Result := 'untitled.txt' else Result := 'untitled.pcl';
 end;
 
 function TApp.LoadPath(const fn: string; quiet: Boolean): Boolean;
 var
-  err: string;
+  err, note: string;
+  plain: Boolean;
 begin
-  err := Doc.LoadFromFile(fn);
+  { .pcl is a PaperClip document; every other file is edited as plain text, exactly as it is }
+  plain := LowerCase(ExtractFileExt(fn)) <> '.pcl';
+  err := Doc.LoadFromFile(fn, plain);
   if err <> '' then
   begin
     SetMsg(UnicodeString('Cannot load ' + ExtractFileName(fn) + ': ' + err), True);
@@ -64,17 +68,22 @@ begin
   WantCol := -1;
   UpdateTitle;
   if not quiet then
-    SetMsg(UnicodeString(Format('Loaded %s: %d line(s)', [ExtractFileName(fn), Doc.Count])));
+  begin
+    note := '';
+    if Doc.Plain then note := ', plain text';
+    if Doc.LoadNote <> '' then note := note + ' (' + Doc.LoadNote + ')';
+    SetMsg(UnicodeString(Format('Loaded %s: %d line(s)%s', [ExtractFileName(fn), Doc.Count, note])));
+  end;
   Result := True;
 end;
 
 function TApp.SavePath(const fn: string; quiet: Boolean): Boolean;
 var
   err: string;
-  plain: Boolean;
+  pcl: Boolean;
 begin
-  plain := LowerCase(ExtractFileExt(fn)) = '.txt';
-  err := Doc.SaveToFile(fn, not plain);
+  pcl := LowerCase(ExtractFileExt(fn)) = '.pcl';
+  err := Doc.SaveToFile(fn, pcl, Doc.Plain);
   if err <> '' then
   begin
     SetMsg(UnicodeString('Cannot save: ' + err), True);
@@ -86,7 +95,9 @@ begin
   UpdateTitle;
   if not quiet then
   begin
-    if plain then
+    if Doc.SaveNote <> '' then
+      SetMsg(UnicodeString('Saved ' + ExtractFileName(fn) + ' (' + Doc.SaveNote + ')'))
+    else if (not pcl) and (not Doc.Plain) then
       SetMsg(UnicodeString('Saved ' + ExtractFileName(fn) + ' as plain text (tabs and line length are not kept)'))
     else
       SetMsg(UnicodeString('Saved ' + ExtractFileName(fn)));
@@ -100,9 +111,11 @@ var
   fi: Integer;
 begin
   name := DefaultName;
-  if LowerCase(ExtractFileExt(name)) = '.txt' then fi := 2 else fi := 1;
+  if LowerCase(ExtractFileExt(name)) = '.pcl' then fi := 2
+  else if LowerCase(ExtractFileExt(name)) = '.txt' then fi := 3
+  else fi := 0;
   if not PickFile(pmSave, 'Save as', DocDir, name, PaperFilters, fi, fn) then Exit;
-  fn := NormalizeName(fn);
+  fn := NormalizeName(fn, Doc.Plain);
   if fn = '' then Exit;
   if FileExists(fn) and (ExpandFileName(fn) <> ExpandFileName(Doc.FileName)) then
     if AskYN('Replace existing file?') <> 1 then Exit;
@@ -158,7 +171,7 @@ begin
   if not PickFile(pmOpen, 'Append', DocDir, '', PaperFilters, 0, fn) then Exit;
   t := TDoc.Create;
   try
-    err := t.LoadFromFile(fn);
+    err := t.LoadFromFile(fn, Doc.Plain);
     if err <> '' then
     begin
       SetMsg(UnicodeString(err), True);
@@ -331,7 +344,7 @@ begin
           fn := IncludeTrailingPathDelimiter(DirPath) + e.Name;
           t := TDoc.Create;
           try
-            err := t.LoadFromFile(fn);
+            err := t.LoadFromFile(fn, Doc.Plain);
             if err = '' then
             begin
               FullScreen := nil;
@@ -444,7 +457,7 @@ begin
   Result := '';
   isErr := False;
   if (f.TocFileName = '') or (f.TocEntries.Count = 0) then Exit;
-  fn := ResolvePath(NormalizeName(f.TocFileName));
+  fn := ResolvePath(NormalizeName(f.TocFileName, False));
   lines := '';
   for i := 0 to f.TocEntries.Count - 1 do
   begin

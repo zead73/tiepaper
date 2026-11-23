@@ -7,7 +7,7 @@ program test_core;
 
 uses
   {$IFDEF USECW}cwstring,{$ENDIF}
-  SysUtils, Classes, pcdoc, pcsearch, pccolumns, pcfmt, pcout, pcspell, pcdirs;
+  SysUtils, Classes, {$IFDEF UNIX}BaseUnix,{$ENDIF} pcdoc, pcsearch, pccolumns, pcfmt, pcout, pcspell, pcdirs, pcsyntax;
 
 var
   Fails, Passes: Integer;
@@ -523,6 +523,154 @@ begin
 end;
 
 {$I tests_dirs.inc}
+{$I tests_syntax.inc}
+
+
+{ ---- plain text mode: a file must come back byte for byte ---- }
+
+procedure WriteRaw(const fn, data: string);
+var
+  fs: TFileStream;
+begin
+  fs := TFileStream.Create(fn, fmCreate);
+  try
+    if Length(data) > 0 then fs.WriteBuffer(data[1], Length(data));
+  finally
+    fs.Free;
+  end;
+end;
+
+function ReadRaw(const fn: string): string;
+var
+  fs: TFileStream;
+begin
+  Result := '';
+  fs := TFileStream.Create(fn, fmOpenRead);
+  try
+    SetLength(Result, fs.Size);
+    if fs.Size > 0 then fs.ReadBuffer(Result[1], fs.Size);
+  finally
+    fs.Free;
+  end;
+end;
+
+procedure RoundTrip(const name, data: string);
+var
+  d: TDoc;
+  fn, err: string;
+begin
+  fn := 'build/test/plain/' + name;
+  WriteRaw(fn, data);
+  d := TDoc.Create;
+  try
+    err := d.LoadFromFile(fn, True);
+    CheckEq(err, '', name + ': loads');
+    Check(d.Plain, name + ': is in plain mode');
+    err := d.SaveToFile(fn + '.out', False, True);
+    CheckEq(err, '', name + ': saves');
+    Check(ReadRaw(fn + '.out') = data, name + ': comes back byte for byte');
+  finally
+    d.Free;
+  end;
+end;
+
+procedure TestPlain;
+var
+  d: TDoc;
+  {$IFDEF UNIX}
+  fn, err: string;
+  st: Stat;
+  {$ENDIF}
+begin
+  ForceDirectories('build/test/plain');
+  RoundTrip('lf', 'one'#10'two'#10);
+  RoundTrip('crlf', 'one'#13#10'two'#13#10);
+  RoundTrip('nofinal', 'one'#10'two');
+  RoundTrip('single', 'a');
+  RoundTrip('empty', '');
+  RoundTrip('blank', #10);
+  RoundTrip('blanks', 'a'#10#10#10);
+  RoundTrip('tabs', 'all:'#10#9'cc -o x x.c'#10'a'#9'b'#9'c'#10);
+  RoundTrip('bom', #$EF#$BB#$BF'name=caf'#$C3#$A9#10);
+  RoundTrip('latin1', 'caf'#$E9' = '#$80#10);
+  RoundTrip('emoji', 'x = '#$F0#$9F#$98#$80' y'#10);
+  RoundTrip('backslash', 'path=C:\dir\file'#10'\ju on'#10);
+  RoundTrip('check', #$E2#$9C#$93'ju on'#10);
+  RoundTrip('pua', 'a'#$EE#$80#$83'b'#$EE#$83#$B0'c'#10);
+  RoundTrip('meta', #$EE#$83#$B0'PAPERCLIP 1 ll=60 tabs='#10'text'#10);
+  RoundTrip('ctrl', 'a'#12'b'#27'[0m'#13'c'#10);
+  RoundTrip('nbsp', 'a'#$C2#$A0'b'#$C2#$AD'c'#$E2#$80#$8B'd'#10);
+  RoundTrip('crlfnofinal', 'a'#13#10'b');
+  RoundTrip('trailingspace', 'a  '#10'  b'#10);
+  { files that cannot be edited faithfully are refused and leave the document alone }
+  WriteRaw('build/test/plain/bin', 'ab'#0'cd');
+  d := TDoc.Create;
+  try
+    d.SetText('keep me');
+    Check(d.LoadFromFile('build/test/plain/bin', True) <> '', 'a file with NUL bytes is refused');
+    CheckEq(S8(d[0]), 'keep me', 'and the document is untouched');
+    { mixed line endings are normalised and the user is told }
+    WriteRaw('build/test/plain/mixed', 'a'#13#10'b'#10'c'#13#10);
+    CheckEq(d.LoadFromFile('build/test/plain/mixed', True), '', 'mixed loads');
+    Check(d.CRLF, 'the majority style wins');
+    Check(d.LoadNote <> '', 'and says so');
+    { an edited Latin-1 file keeps its encoding unless it gets a character Latin-1 lacks }
+    WriteRaw('build/test/plain/l1', 'caf'#$E9#10);
+    d.LoadFromFile('build/test/plain/l1', True);
+    d.InsText(0, 0, U('x'));
+    CheckEq(d.SaveToFile('build/test/plain/l1', False, True), '', 'saves an edited Latin-1 file');
+    CheckEq(ReadRaw('build/test/plain/l1'), 'xcaf'#$E9#10, 'still Latin-1');
+    d.InsText(0, 0, WideChar($20AC));
+    d.SaveToFile('build/test/plain/l1', False, True);
+    CheckEq(ReadRaw('build/test/plain/l1'), #$E2#$82#$AC'xcaf'#$C3#$A9#10, 'a euro sign makes it UTF-8');
+    Check(d.SaveNote <> '', 'and says so');
+    { an empty file that gets text ends with a newline }
+    WriteRaw('build/test/plain/e2', '');
+    d.LoadFromFile('build/test/plain/e2', True);
+    d.InsText(0, 0, U('hi'));
+    d.SaveToFile('build/test/plain/e2', False, True);
+    CheckEq(ReadRaw('build/test/plain/e2'), 'hi'#10, 'typed into an empty file');
+    { the same file in PaperClip mode still expands tabs and drops control characters }
+    WriteRaw('build/test/plain/pc', 'a'#9'b'#10);
+    d.LoadFromFile('build/test/plain/pc');
+    Check(not d.Plain, 'PaperClip mode by default');
+    CheckEq(S8(d[0]), 'a       b', 'tabs expand to 8');
+    { leaving plain mode expands them too }
+    d.LoadFromFile('build/test/plain/pc', True);
+    CheckEq(S8(d[0]), 'a'#9'b', 'plain keeps the tab');
+    d.ToPaperClip;
+    CheckEq(S8(d[0]), 'a       b', 'leaving plain mode expands it');
+    Check(not d.Plain, 'and is no longer plain');
+  finally
+    d.Free;
+  end;
+  {$IFDEF UNIX}
+  { permissions and links survive a save }
+  fn := 'build/test/plain/script';
+  WriteRaw(fn, '#!/bin/sh'#10'echo hi'#10);
+  FpChmod(fn, &750);
+  d := TDoc.Create;
+  try
+    d.LoadFromFile(fn, True);
+    d.InsText(1, 0, U('# '));
+    CheckEq(d.SaveToFile(fn, False, True), '', 'script saves');
+    FpStat(fn, st);
+    CheckInt(st.st_mode and &7777, &750, 'the mode is kept');
+    CheckEq(ReadRaw(fn), '#!/bin/sh'#10'# echo hi'#10, 'script text');
+    DeleteFile('build/test/plain/link');
+    FpSymlink('script', 'build/test/plain/link');
+    d.LoadFromFile('build/test/plain/link', True);
+    d.InsText(1, 0, U('# '));
+    err := d.SaveToFile('build/test/plain/link', False, True);
+    CheckEq(err, '', 'saves through a link');
+    FpLStat('build/test/plain/link', st);
+    Check(fpS_ISLNK(st.st_mode), 'the link is still a link');
+    CheckEq(ReadRaw(fn), '#!/bin/sh'#10'# # echo hi'#10, 'and the file it points to changed');
+  finally
+    d.Free;
+  end;
+  {$ENDIF}
+end;
 
 begin
   {$IFDEF WINDOWS}
@@ -543,6 +691,8 @@ begin
   TestSpellScan;
   TestOutput;
   TestDirs;
+  TestPlain;
+  TestSyntax;
   WriteLn(Passes, ' passed, ', Fails, ' failed');
   if Fails > 0 then Halt(1);
 end.

@@ -1,0 +1,7 @@
+q\q# sample config
+name = value
+path = C:\temp\x
+\a=notformat
+✓ju on
+        indented with a tab
+last line

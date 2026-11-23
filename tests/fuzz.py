@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Throws random keystrokes at a range-checked build of the editor (headless) and reports crashes.
-usage: tests/fuzz.py [runs] [seed]"""
+usage: tests/fuzz.py [runs] [seed] [source file to open first, to exercise syntax colouring]"""
 import os, random, subprocess, sys, tempfile
 
 runs = int(sys.argv[1]) if len(sys.argv) > 1 else 30
 seed = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+src = sys.argv[3] if len(sys.argv) > 3 else None
 here = os.path.dirname(os.path.abspath(__file__))
 exe = os.path.join(here, '..', 'build', 'dbg', 'tiepaper_dbg')
 root = os.path.join(here, '..')
@@ -30,10 +31,16 @@ extra = ['return', 'y', 'n', '1', '5', 'x', '2', 'escape']
 
 os.makedirs('/tmp/pchome-fuzz/.config', exist_ok=True)
 os.makedirs('/tmp/pchome-fuzz/work', exist_ok=True)   # random Ctrl+S answers land here, not in the project
+if src:
+    import shutil
+    shutil.copy(src, os.path.join('/tmp/pchome-fuzz/work', os.path.basename(src)))
+    words += ['{', '}', '(*', '*)', '/*', '*/', '"', "'", "r#\"", '\\"', '//', '#', 'begin', 'end;', '$FF', "'don''t'"]
 fails = 0
 for r in range(runs):
     rnd = random.Random(seed * 1000 + r)
     lines = ['size %d %d' % (rnd.choice([500, 800, 1100]), rnd.choice([300, 500, 700]))]
+    if src:
+        lines.append('open ' + os.path.join('/tmp/pchome-fuzz/work', os.path.basename(src)))
     for _ in range(rnd.randint(40, 160)):
         c = rnd.random()
         if c < 0.35:

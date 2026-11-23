@@ -29,6 +29,9 @@ letters below mean **Ctrl+Shift**.
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo (new) |
 | F7 | Word wrap on/off (off: lines scroll sideways) |
 | Ctrl+Shift+L | Line length for this document (0 = fit the window) |
+| Ctrl+Shift+T | Plain text mode / PaperClip mode for this document (new): every file not named `.pcl` opens as plain text and is saved byte for byte |
+| Ctrl+Shift+G | Syntax colouring on / off (plain text mode; the file name picks the language) |
+| Tab / Ctrl+Tab | In plain text mode: spaces to the next multiple of the tab width (`tabwidth` in `[editing]` of tiepaper.ini, default 4) / a real tab character |
 | Ctrl+Shift+X | Quit |
 | Esc F5 / F5 | Set a bookmark (two are kept) / jump between them |
 | Alt+C, Alt+X, Alt+V | Copy / cut / paste with the system clipboard: the phrase or range (new) |
@@ -174,8 +177,8 @@ your system; set another in File Options (F4), e.g. `en_CA` on Linux or `en-CA` 
 | F2 / F4 | Screen options / file options menus |
 | F1 | Help |
 
-Names ending in `.txt` are saved as plain text (tabs and line length are not kept);
-any other name keeps them in a one-line header.
+A PaperClip document saved under a name that does not end in `.pcl` is written as plain text (tabs and
+line length are not kept); a `.pcl` name keeps them in a one-line header.
 
 In the **preview**: PgUp/PgDn move by page, arrows scroll and pan, **Z** (or F8) changes the
 zoom, **W** lists formatting warnings, **Enter** returns to the editor at the text you were

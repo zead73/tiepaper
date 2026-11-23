@@ -1,0 +1,22 @@
+size 900 600
+open build/test-out/plainconf
+dump build/test-out/plain_a.txt
+shot build/test-out/plain_screen.png
+key ctrl+end
+key return
+text new \ line
+key tab
+text x
+key ctrl+tab
+text y
+key ctrl+s
+key return
+dump build/test-out/plain_b.txt
+open build/test-out/crlfconf.cfg
+key ctrl+end
+key return
+text c=3
+key ctrl+s
+key return
+dump build/test-out/plain_c.txt
+quit

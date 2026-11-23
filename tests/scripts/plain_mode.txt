@@ -1,0 +1,15 @@
+size 900 600
+open build/test-out/plainconf
+key alt+b
+text q
+dump build/test-out/plain_mode_a.txt
+key ctrl+shift+t
+text y
+dump build/test-out/plain_mode_b.txt
+key alt+b
+text q
+dump build/test-out/plain_mode_c.txt
+key ctrl+shift+t
+text \
+dump build/test-out/plain_mode_d.txt
+quit

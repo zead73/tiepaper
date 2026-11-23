@@ -21,7 +21,7 @@ unit pcapp;
 interface
 
 uses
-  SysUtils, Classes, Character, pcsdl, pcconfig, pcgfx, pcdoc, pcsearch, pccolumns, pcfmt, pcout, pcspell, pcdirs;
+  SysUtils, Classes, Character, pcsdl, pcconfig, pcgfx, pcdoc, pcsearch, pccolumns, pcfmt, pcout, pcspell, pcdirs, pcsyntax;
 
 const
   SYM_CTRLTAP = $7FFF0001;      { a Control key pressed and released on its own }
@@ -76,6 +76,15 @@ type
     StyleRev: LongWord;
     StyleValid: Boolean;
     ParaStyle: array of Byte;
+    { syntax colouring (plain text mode): the state each paragraph starts in, and the classes of one paragraph }
+    HlLang: TLang;
+    HlRev: LongWord;
+    HlValid: Boolean;
+    HlUpTo: Integer;
+    HlState: array of Word;
+    HlScratch: TClsArray;
+    HlPara: Integer;
+    HlCls: TClsArray;
     JumpIdx: Integer;
     Done, QuitReq: Boolean;
     FullScreen, Overlay: TProc;
@@ -166,6 +175,10 @@ type
     function MixColor(a, b: LongWord; pct: Integer): LongWord;
     procedure DrawCursor;
     procedure EnsureStyleCache;
+    function CurrentLang: TLang;
+    procedure HlPrepare(lastPara: Integer);
+    procedure HlLoadPara(p: Integer);
+    procedure ToggleSyntax;
     function StyleAt(p, c: Integer): Byte;
     procedure ToggleStyle(kind: Char);
 
@@ -217,6 +230,8 @@ type
     procedure Redo;
     procedure ClipCopy(cut: Boolean);
     procedure ClipPaste;
+    procedure TogglePlain;
+    function PlainRefuses(const what: string): Boolean;
     function IsNumChar(ch: WideChar): Boolean;
     function TryQuit: Boolean;
     function CurRow: Integer;
@@ -424,6 +439,7 @@ begin
     else
     begin
       Doc.FileName := ExpandFileName(initialFile);
+      Doc.Plain := LowerCase(ExtractFileExt(initialFile)) <> '.pcl';
       SetMsg('New file ' + UnicodeString(initialFile));
     end;
   end;

@@ -77,7 +77,7 @@ begin
       end;
       NumMode := False;
     end;
-    if ch = '\' then ch := CH_CHECK;
+    if (ch = '\') and (not Doc.Plain) then ch := CH_CHECK;
     Doc.PushUndo(1);
     if (not InsertMode) and (Doc.CurC < Length(Doc[Doc.CurP])) then
       Doc.DelText(Doc.CurP, Doc.CurC, 1);
@@ -286,9 +286,22 @@ end;
 
 procedure TApp.DoTab(numericOnly: Boolean);
 var
-  row, col, nxt, c, rowStart, first: Integer;
+  row, col, nxt, c, rowStart, first, w: Integer;
 begin
   Doc.BreakGroup;
+  if Doc.Plain then
+  begin
+    { a text editor's Tab: spaces up to the next multiple of the tab width (Ctrl+Tab types a real tab) }
+    if numericOnly then begin PlainRefuses('Numeric tab stops'); Exit; end;
+    w := Cfg.TabWidth;
+    if w < 1 then w := 4;
+    c := ((Doc.CurC div w) + 1) * w - Doc.CurC;
+    Doc.PushUndo(0);
+    if SelActive then DeleteSelection;
+    Doc.InsText(Doc.CurP, Doc.CurC, UnicodeString(StringOfChar(' ', c)));
+    WantCol := -1;
+    Exit;
+  end;
   if Doc.TabCount = 0 then
   begin
     { no tab stops set: behave like a text editor and move to the next multiple of 8 }
@@ -337,6 +350,7 @@ var
   row, col: Integer;
   bit: Byte;
 begin
+  if PlainRefuses('Tab stops') then Exit;
   CursorRowCol(row, col);
   if col > MAXWIDTH then Exit;
   if numeric then bit := TAB_NUM else bit := TAB_REG;
@@ -355,6 +369,7 @@ end;
 
 procedure TApp.ClearTabs;
 begin
+  if PlainRefuses('Tab stops') then Exit;
   FillChar(Doc.Tabs, SizeOf(Doc.Tabs), 0);
   Doc.Modified := True;
   NumMode := False;
@@ -428,6 +443,7 @@ procedure TApp.SetLineLength;
 var
   n: Integer;
 begin
+  if PlainRefuses('A line length') then Exit;
   n := Doc.LineLen;
   if not AskInt('Line length? (0 = fit the window, else 20-' + UnicodeString(IntToStr(MAXWIDTH)) + ')', n, 0, MAXWIDTH) then Exit;
   if (n > 0) and (n < 20) then
@@ -474,7 +490,7 @@ begin
     SetMsg('Set a phrase (Ctrl+P) or a range (Ctrl+R) first', True);
     Exit;
   end;
-  u := UTF8Encode(StripMarkers(txt));
+  if Doc.Plain then u := UTF8Encode(txt) else u := UTF8Encode(StripMarkers(txt));
   SDL_SetClipboardText(PAnsiChar(u));
   if cut then
   begin
@@ -506,7 +522,7 @@ begin
   if pc = nil then Exit;
   txt := UTF8Decode(string(pc));
   SDL_free(pc);
-  txt := UnicodeString(StringReplace(UTF8Encode(txt), #9, '    ', [rfReplaceAll]));
+  if not Doc.Plain then txt := UnicodeString(StringReplace(UTF8Encode(txt), #9, '    ', [rfReplaceAll]));
   if txt = '' then
   begin
     SetMsg('The clipboard is empty', True);
@@ -572,6 +588,36 @@ begin
   SetMsg('Not an Esc code', True);
 end;
 
+{ Print enhancements, tab stops and line length belong to PaperClip documents. }
+function TApp.PlainRefuses(const what: string): Boolean;
+begin
+  Result := Doc.Plain;
+  if Result then
+    SetMsg(UnicodeString(what + ' do not apply in plain text mode (Ctrl+Shift+T switches modes)'), True);
+end;
+
+{ Ctrl+Shift+T: edit the file as plain text, or as a PaperClip document }
+procedure TApp.TogglePlain;
+begin
+  if Doc.Plain then
+  begin
+    if AskYN('Make this a PaperClip document? Tabs become spaces and control characters go.') <> 1 then Exit;
+    Doc.ForgetUndo;
+    Doc.ToPaperClip;
+    StyleValid := False;
+    TopRow := 0;
+    LeftCol := 0;
+    SetMsg('PaperClip mode: format lines, print marks and tab stops work (Ctrl+Shift+T goes back)');
+  end
+  else
+  begin
+    Doc.Plain := True;
+    StyleValid := False;
+    SetMsg('Plain text mode: the text is saved exactly as you see it (Ctrl+Shift+T goes back)');
+  end;
+  WantCol := -1;
+end;
+
 procedure TApp.CtrlCommand(ch: WideChar);
 begin
   FollowCursor := True;
@@ -619,7 +665,9 @@ begin
     'Z': Redo;
     'Y': DoSpell;
     'b': ToggleStyle('B');
-    '!': InsertAtCursor(CH_BREAK);
+    '!': if not PlainRefuses('Breakpoints') then InsertAtCursor(CH_BREAK);
+    'T': TogglePlain;
+    'G': ToggleSyntax;
   else
     SetMsg('Control ' + ch + ' is not a TiePaper command (F1 lists them)', True);
   end;
@@ -671,6 +719,13 @@ begin
         end;
       SDLK_ESCAPE: ;
       SDLK_RETURN, SDLK_KP_ENTER: ;
+      SDLK_TAB:
+        if Doc.Plain then
+        begin
+          if SelActive then begin Doc.PushUndo(0); DeleteSelection; end;
+          InsertAtCursor(#9);
+        end
+        else SetMsg('Unknown control key', True);
     else
       begin
         ch := KeyToCtrlChar(ev.Sym, ev.Shift);
@@ -701,7 +756,7 @@ begin
     SDLK_BACKSPACE: DoBackspace;
     SDLK_DELETE: if ev.Shift then ClipCopy(True) else DoDelete;
     SDLK_TAB: DoTab(False);
-    SDLK_ESCAPE: EscMode := True;
+    SDLK_ESCAPE: if not Doc.Plain then EscMode := True;
     SDLK_LEFT: MoveLeft;
     SDLK_RIGHT: MoveRight;
     SDLK_UP: MoveVert(-1);
@@ -725,7 +780,7 @@ begin
     SDLK_INSERT: if ev.Shift then ClipPaste else InsertMode := not InsertMode;
     SDLK_F6: ToggleTab(False);
     SDLK_SPACE:
-      if ev.Shift then
+      if ev.Shift and (not Doc.Plain) then
       begin
         InsertAtCursor(CH_HARDSPACE);
         SwallowText := True;

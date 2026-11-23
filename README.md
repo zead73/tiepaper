@@ -38,6 +38,8 @@ keyboard-driven and good with tables.
 - Bold, italics and underline shown live in the editor, on Alt+B / Alt+I / Alt+U (Ctrl+B too)
 - Undo/redo, system clipboard (Alt+C / Alt+X / Alt+V), mouse positioning and wheel
 - A **file picker** for Load, Save, Append, Range Save and Output (Far-style, shared with TieSheet): type to jump or to enter a path, Tab changes the filter, F2 lists places and drives, F7 makes a folder
+- A **plain text mode** for config files and source code: any file not named `.pcl` is opened and saved byte for byte (line endings, final newline, UTF-8 / BOM / Latin-1, tabs, backslashes; no header), keeping its permissions and symlinks. Ctrl+Shift+T switches a document between plain text and PaperClip mode
+- **Syntax colouring** in plain text mode, chosen by the file name: Pascal, C/C++, Rust, Python, shell scripts and config files (`.conf`, `.ini`, `fstab`, ...). The text is never changed; Ctrl+Shift+G turns it off. The colours are the `syntax_*` entries under `[colors]` in `tiepaper.ini`
 - Asks before discarding changes; saves through a temporary file and keeps a `.bak`
 
 ## Not included
@@ -129,6 +131,7 @@ The GUI tests replay scripts from `tests/scripts/` (`key ctrl+r`, `text hello`, 
 | `src/pcdoc.pas` | Document model: paragraphs, wrapping, marks, undo, files |
 | `src/pcfmt.pas` | Output formatter: format lines, pages, headers/footers, links |
 | `src/pcout.pas` | PDF and plain-text writers |
+| `src/pcsyntax.pas` | Syntax colouring: a line tokenizer with no display code |
 | `src/pcsearch.pas`, `src/pccolumns.pas`, `src/pcspell.pas` | Search patterns; column functions and arithmetic; the system spell checker |
 | `src/pcsdl.pas`, `src/pcgfx.pas` | Run-time SDL2 bindings; the character-cell display |
 | `src/pcapp*.inc`, `src/pcapp.pas` | The editor: input, drawing, editing, blocks, search, files, screens |

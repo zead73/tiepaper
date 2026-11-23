@@ -17,6 +17,9 @@ const
     'Black', 'White', 'Red', 'Cyan', 'Purple', 'Green', 'Blue', 'Yellow',
     'Orange', 'Brown', 'L Red', 'D Gray', 'Gray', 'L Green', 'L Blue', 'L Gray');
 
+  SyntaxKeys: array[1..6] of string = (
+    'syntax_keyword', 'syntax_type', 'syntax_string', 'syntax_number', 'syntax_comment', 'syntax_preproc');
+
   { preview colours for each combination of print enhancements, in the manual's order }
   PREV_BOLD = 0;
   PREV_UL = 1;
@@ -31,11 +34,14 @@ type
     ColText, ColBack, ColBorder: Integer;
     ColPrev: array[0..6] of Integer;
     ColDirective, ColMarker, ColReturn: Integer;
+    ColSyntax: array[1..6] of Integer;   { keyword, type, string, number, comment, preprocessor }
+    Syntax: Boolean;             { colour source code in plain text mode }
     FontSize: Integer;
     FontFamily: string;          { file prefix, e.g. LiberationMono }
     FontDir: string;             { empty = look in the usual places }
     ShowReturn: Boolean;
     WrapView: Boolean;
+    TabWidth: Integer;           { plain text mode: the Tab key inserts spaces up to a multiple of this }
     Paper: Integer;              { 0 = Letter, 1 = A4 }
     WinW, WinH: Integer;
     LastDir: string;
@@ -69,11 +75,19 @@ begin
   s.ColDirective := 7;
   s.ColMarker := 3;
   s.ColReturn := 12;
+  s.ColSyntax[1] := 7;
+  s.ColSyntax[2] := 3;
+  s.ColSyntax[3] := 13;
+  s.ColSyntax[4] := 10;
+  s.ColSyntax[5] := 14;
+  s.ColSyntax[6] := 5;
+  s.Syntax := True;
   s.FontSize := 20;
   s.FontFamily := 'LiberationMono';
   s.FontDir := '';
   s.ShowReturn := True;
   s.WrapView := True;
+  s.TabWidth := 4;
   s.Paper := 0;
   s.WinW := 1100;
   s.WinH := 760;
@@ -166,11 +180,15 @@ begin
     s.ColDirective := Clamp(ini.ReadInteger('colors', 'directive', s.ColDirective), 0, 15);
     s.ColMarker := Clamp(ini.ReadInteger('colors', 'marker', s.ColMarker), 0, 15);
     s.ColReturn := Clamp(ini.ReadInteger('colors', 'return', s.ColReturn), 0, 15);
+    for i := 1 to 6 do
+      s.ColSyntax[i] := Clamp(ini.ReadInteger('colors', SyntaxKeys[i], s.ColSyntax[i]), 0, 15);
+    s.Syntax := ini.ReadBool('editing', 'syntax', s.Syntax);
     s.FontSize := Clamp(ini.ReadInteger('display', 'fontsize', s.FontSize), 8, 72);
     s.FontFamily := ini.ReadString('display', 'fontfamily', s.FontFamily);
     s.FontDir := ini.ReadString('display', 'fontdir', s.FontDir);
     s.ShowReturn := ini.ReadBool('display', 'showreturn', s.ShowReturn);
     s.WrapView := ini.ReadBool('display', 'wrap', s.WrapView);
+    s.TabWidth := Clamp(ini.ReadInteger('editing', 'tabwidth', s.TabWidth), 1, 16);
     s.Paper := Clamp(ini.ReadInteger('output', 'paper', s.Paper), 0, 1);
     s.WinW := Clamp(ini.ReadInteger('window', 'width', s.WinW), 400, 8000);
     s.WinH := Clamp(ini.ReadInteger('window', 'height', s.WinH), 300, 6000);
@@ -195,12 +213,15 @@ begin
     for i := 0 to 6 do ini.WriteInteger('colors', 'preview' + IntToStr(i), s.ColPrev[i]);
     ini.WriteInteger('colors', 'directive', s.ColDirective);
     ini.WriteInteger('colors', 'marker', s.ColMarker);
+    for i := 1 to 6 do ini.WriteInteger('colors', SyntaxKeys[i], s.ColSyntax[i]);
+    ini.WriteBool('editing', 'syntax', s.Syntax);
     ini.WriteInteger('colors', 'return', s.ColReturn);
     ini.WriteInteger('display', 'fontsize', s.FontSize);
     ini.WriteString('display', 'fontfamily', s.FontFamily);
     ini.WriteString('display', 'fontdir', s.FontDir);
     ini.WriteBool('display', 'showreturn', s.ShowReturn);
     ini.WriteBool('display', 'wrap', s.WrapView);
+    ini.WriteInteger('editing', 'tabwidth', s.TabWidth);
     ini.WriteInteger('output', 'paper', s.Paper);
     ini.WriteInteger('window', 'width', s.WinW);
     ini.WriteInteger('window', 'height', s.WinH);

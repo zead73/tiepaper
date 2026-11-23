@@ -3,14 +3,14 @@
 { file picker filters: "name|patterns" }
 const
   PaperFilters: array[0..3] of string = (
-    'PCL and text|*.pcl;*.txt', 'PaperClip (*.pcl)|*.pcl', 'Text (*.txt)|*.txt',
-    'All files|*');
+    'All files|*', 'PCL and text|*.pcl;*.txt', 'PaperClip (*.pcl)|*.pcl', 'Text (*.txt)|*.txt');
   OutputFilters: array[0..2] of string = ('PDF (*.pdf)|*.pdf', 'Text (*.txt)|*.txt', 'All files|*');
 
-function NormalizeName(const name: string): string;
+{ PaperClip documents get .pcl when no extension is typed; plain text files keep the name as it is }
+function NormalizeName(const name: string; plain: Boolean): string;
 begin
   Result := Trim(name);
-  if (Result <> '') and (ExtractFileExt(Result) = '') then Result := Result + '.pcl';
+  if (not plain) and (Result <> '') and (ExtractFileExt(Result) = '') then Result := Result + '.pcl';
 end;
 
 function TApp.PhraseText: UnicodeString;
@@ -310,8 +310,8 @@ var
   i: Integer;
 begin
   if not Doc.RangeSet then begin SetMsg('No Line Range set', True); Exit; end;
-  if not PickFile(pmSave, 'Save range as', DocDir, '', PaperFilters, 1, fn) then Exit;
-  fn := NormalizeName(fn);
+  if not PickFile(pmSave, 'Save range as', DocDir, '', PaperFilters, 0, fn) then Exit;
+  fn := NormalizeName(fn, Doc.Plain);
   if fn = '' then Exit;
   if FileExists(fn) and (AskYN('Replace existing file?') <> 1) then Exit;
   t := TDoc.Create;
@@ -321,7 +321,9 @@ begin
       if i = Doc.RangeP1 then t[0] := Doc[i] else t.InsPara(t.Count, Doc[i]);
     t.Tabs := Doc.Tabs;
     t.LineLen := Doc.LineLen;
-    err := t.SaveToFile(fn, LowerCase(ExtractFileExt(fn)) <> '.txt');
+    t.CRLF := Doc.CRLF;
+    t.Enc := Doc.Enc;
+    err := t.SaveToFile(fn, LowerCase(ExtractFileExt(fn)) = '.pcl', Doc.Plain);
   finally
     t.Free;
   end;

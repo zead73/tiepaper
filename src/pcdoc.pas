@@ -44,6 +44,8 @@ const
   TAB_NUM = 2;
 
 type
+  TTextEnc = (teUtf8, teUtf8Bom, teLatin1);     { how a plain text file was encoded, so it is saved the same way }
+
   TIntArray = array of Integer;
   TStrArray = array of UnicodeString;
 
@@ -74,6 +76,14 @@ type
     procedure ClearMarks;
   public
     FileName: string;
+    { plain text mode: the file is edited exactly as it is (see LoadFromFile) }
+    Plain: Boolean;
+    CRLF: Boolean;                          { plain text: lines end CR LF }
+    FinalNL: Boolean;                       { plain text: the file ends with a line ending }
+    Enc: TTextEnc;
+    FromEmpty: Boolean;                     { plain text: the file was empty (not just one blank line) }
+    LoadNote: string;                       { something worth telling the user about the last load }
+    SaveNote: string;                       { and about the last save }
     Rev: LongWord;                          { changes whenever the text does }
     Modified: Boolean;
     LineLen: Integer;                       { 0 = fit the window }
@@ -122,8 +132,11 @@ type
     procedure RowColToPos(row, col: Integer; out p, c: Integer);
 
     { files }
-    function LoadFromFile(const fn: string): string;     { '' = ok }
-    function SaveToFile(const fn: string; withMeta: Boolean): string;
+    { asPlain = True reads and writes the file byte for byte: no tab expansion, no header line, the
+      file's own line endings, final newline and encoding (UTF-8, UTF-8 with BOM, or Latin-1). }
+    function LoadFromFile(const fn: string; asPlain: Boolean = False): string;     { '' = ok }
+    function SaveToFile(const fn: string; withMeta: Boolean; asPlain: Boolean = False): string;
+    procedure ToPaperClip;                  { leave plain mode: tabs become spaces, control characters go }
     function PlainText: UnicodeString;
     procedure SetText(const s: UnicodeString);
 
@@ -141,6 +154,11 @@ procedure WrapPara(const s: UnicodeString; w: Integer; var starts: TIntArray; va
 function Latin1Fold(const s: UnicodeString): UnicodeString;
 
 implementation
+
+{$IFDEF UNIX}
+uses
+  BaseUnix, Unix;
+{$ENDIF}
 
 function IsFormatLine(const s: UnicodeString): Boolean;
 begin
@@ -306,6 +324,13 @@ begin
   FillChar(Tabs, SizeOf(Tabs), 0);
   LineLen := 0;
   FileName := '';
+  Plain := False;
+  CRLF := False;
+  FinalNL := True;
+  FromEmpty := False;
+  Enc := teUtf8;
+  LoadNote := '';
+  SaveNote := '';
   Modified := False;
   SetLength(FUndo, 0);
   SetLength(FRedo, 0);
@@ -891,11 +916,51 @@ begin
   Touch;
 end;
 
-function TDoc.LoadFromFile(const fn: string): string;
+function IsValidUtf8(const raw: RawByteString; from: Integer): Boolean;
+var
+  i, n, extra: Integer;
+  b: Byte;
+begin
+  Result := True;
+  n := Length(raw);
+  i := from;
+  while i <= n do
+  begin
+    b := Ord(raw[i]);
+    if b < $80 then extra := 0
+    else if (b and $E0) = $C0 then extra := 1
+    else if (b and $F0) = $E0 then extra := 2
+    else if (b and $F8) = $F0 then extra := 3
+    else Exit(False);
+    if i + extra > n then Exit(False);
+    while extra > 0 do
+    begin
+      Inc(i);
+      if (Ord(raw[i]) and $C0) <> $80 then Exit(False);
+      Dec(extra);
+    end;
+    Inc(i);
+  end;
+end;
+
+function TDoc.LoadFromFile(const fn: string; asPlain: Boolean): string;
 var
   fs: TFileStream;
   raw: RawByteString;
   txt: UnicodeString;
+  list: TStrArray;
+  cnt, i, st, n, crlfN, lfN: Integer;
+  seg: UnicodeString;
+  newEnc: TTextEnc;
+  newFinal, newEmpty: Boolean;
+
+  procedure Add(const t: UnicodeString);
+  begin
+    if cnt >= Length(list) then SetLength(list, cnt * 2 + 16);
+    list[cnt] := t;
+    Inc(cnt);
+  end;
+
 begin
   Result := '';
   try
@@ -909,13 +974,76 @@ begin
   except
     on e: Exception do Exit(e.Message);
   end;
-  txt := DecodeText(raw);
-  Clear;
-  SetText(txt);
-  if (FCount > 0) and (Length(FLines[0]) > 0) and (FLines[0][1] = CH_META) then
+  if asPlain then
   begin
-    ApplyMeta(FLines[0]);
-    DelParas(0, 1);
+    { read it before anything is cleared, so a refused file leaves the document alone }
+    if Pos(#0, raw) > 0 then Exit('this looks like a binary file (it contains NUL bytes)');
+    st := 1;
+    newEnc := teUtf8;
+    if (Length(raw) >= 3) and (raw[1] = #$EF) and (raw[2] = #$BB) and (raw[3] = #$BF) then
+    begin
+      newEnc := teUtf8Bom;
+      st := 4;
+    end
+    else if not IsValidUtf8(raw, 1) then newEnc := teLatin1;
+    if newEnc = teLatin1 then
+    begin
+      SetLength(txt, Length(raw));
+      for i := 1 to Length(raw) do txt[i] := WideChar(Ord(raw[i]));
+    end
+    else
+      txt := UTF8Decode(Copy(raw, st, MaxInt));
+    n := Length(txt);
+    cnt := 0;
+    crlfN := 0;
+    lfN := 0;
+    st := 1;
+    for i := 1 to n do
+      if txt[i] = #10 then
+      begin
+        seg := Copy(txt, st, i - st);
+        if (Length(seg) > 0) and (seg[Length(seg)] = #13) then
+        begin
+          SetLength(seg, Length(seg) - 1);
+          Inc(crlfN);
+        end
+        else Inc(lfN);
+        Add(seg);
+        st := i + 1;
+      end;
+    newFinal := True;
+    if st <= n then
+    begin
+      Add(Copy(txt, st, MaxInt));
+      newFinal := False;
+    end;
+    if cnt = 0 then Add('');
+    newEmpty := n = 0;
+    Clear;
+    SetLength(FLines, cnt + 16);
+    for i := 0 to cnt - 1 do FLines[i] := list[i];
+    FCount := cnt;
+    Plain := True;
+    Enc := newEnc;
+    FinalNL := newFinal;
+    CRLF := crlfN > lfN;
+    FromEmpty := newEmpty;
+    if (crlfN > 0) and (lfN > 0) then
+    begin
+      if CRLF then LoadNote := 'mixed line endings made all CR LF' else LoadNote := 'mixed line endings made all LF';
+    end
+    else if newEnc = teLatin1 then LoadNote := 'not UTF-8: read as Latin-1 and saved the same way';
+  end
+  else
+  begin
+    txt := DecodeText(raw);
+    Clear;
+    SetText(txt);
+    if (FCount > 0) and (Length(FLines[0]) > 0) and (FLines[0][1] = CH_META) then
+    begin
+      ApplyMeta(FLines[0]);
+      DelParas(0, 1);
+    end;
   end;
   FileName := fn;
   Modified := False;
@@ -923,6 +1051,19 @@ begin
   CurC := 0;
   ClearMarks;
   ForgetUndo;
+  Touch;
+end;
+
+procedure TDoc.ToPaperClip;
+var
+  i: Integer;
+begin
+  if not Plain then Exit;
+  for i := 0 to FCount - 1 do FLines[i] := CleanLine(FLines[i]);
+  Plain := False;
+  CurC := 0;
+  CurP := 0;
+  ClearMarks;
   Touch;
 end;
 
@@ -934,43 +1075,117 @@ begin
   for i := 0 to FCount - 1 do Result := Result + FLines[i] + #10;
 end;
 
-function TDoc.SaveToFile(const fn: string; withMeta: Boolean): string;
+{ The file a name really points at: a symbolic link is followed, so saving does not replace the link. }
+function FollowLinks(const fn: string): string;
+{$IFDEF UNIX}
 var
-  tmp, bak: string;
-  fs: TFileStream;
   i: Integer;
+  t: string;
+  st: Stat;
+begin
+  Result := fn;
+  for i := 1 to 16 do
+  begin
+    if FpLStat(Result, st) <> 0 then Exit;
+    if not fpS_ISLNK(st.st_mode) then Exit;
+    t := fpReadLink(Result);
+    if t = '' then Exit;
+    if t[1] <> '/' then t := ExtractFilePath(ExpandFileName(Result)) + t;
+    Result := ExpandFileName(t);
+  end;
+end;
+{$ELSE}
+begin
+  Result := fn;
+end;
+{$ENDIF}
+
+function TDoc.SaveToFile(const fn: string; withMeta: Boolean; asPlain: Boolean): string;
+var
+  target, tmp, bak, eol: string;
+  fs: TFileStream;
+  i, k: Integer;
   u: RawByteString;
+  latin: Boolean;
+  {$IFDEF UNIX}
+  st: Stat;
+  {$ENDIF}
 
   procedure W(const s: UnicodeString);
+  var
+    j: Integer;
   begin
-    u := UTF8Encode(s);
+    if latin then
+    begin
+      SetLength(u, Length(s));
+      for j := 1 to Length(s) do u[j] := AnsiChar(Ord(s[j]));
+    end
+    else u := UTF8Encode(s);
     if Length(u) > 0 then fs.WriteBuffer(u[1], Length(u));
   end;
 
 begin
   Result := '';
-  tmp := fn + '.tmp~';
+  SaveNote := '';
+  target := FollowLinks(fn);
+  tmp := target + '.tmp~';
+  latin := False;
+  if asPlain and (Enc = teLatin1) then
+  begin
+    latin := True;
+    for i := 0 to FCount - 1 do
+      for k := 1 to Length(FLines[i]) do
+        if Ord(FLines[i][k]) > 255 then latin := False;
+    if not latin then
+    begin
+      Enc := teUtf8;
+      SaveNote := 'saved as UTF-8: Latin-1 cannot hold the new characters';
+    end;
+  end;
   try
     fs := TFileStream.Create(tmp, fmCreate);
     try
-      if withMeta then W(MetaLine + #10);
-      for i := 0 to FCount - 1 do W(FLines[i] + #10);
+      if asPlain then
+      begin
+        if Enc = teUtf8Bom then
+        begin
+          u := #$EF#$BB#$BF;
+          fs.WriteBuffer(u[1], 3);
+        end;
+        if CRLF then eol := #13#10 else eol := #10;
+        { a file that was empty and still is stays empty }
+        if not (FromEmpty and (FCount = 1) and (FLines[0] = '')) then
+          for i := 0 to FCount - 1 do
+          begin
+            W(FLines[i]);
+            if (i < FCount - 1) or FinalNL then W(UnicodeString(eol));
+          end;
+      end
+      else
+      begin
+        if withMeta then W(MetaLine + #10);
+        for i := 0 to FCount - 1 do W(FLines[i] + #10);
+      end;
     finally
       fs.Free;
     end;
-    if FileExists(fn) then
+    {$IFDEF UNIX}
+    { keep the permissions (a script stays executable, ~/.ssh/config stays private) }
+    if FpStat(target, st) = 0 then FpChmod(tmp, st.st_mode and &7777);
+    {$ENDIF}
+    if FileExists(target) then
     begin
-      bak := fn + '.bak';
+      bak := target + '.bak';
       if FileExists(bak) then DeleteFile(bak);
-      if not RenameFile(fn, bak) then
+      if not RenameFile(target, bak) then
       begin
         DeleteFile(tmp);
-        Exit('Cannot make a backup of ' + fn);
+        Exit('Cannot make a backup of ' + target);
       end;
     end;
-    if not RenameFile(tmp, fn) then
+    if not RenameFile(tmp, target) then
     begin
-      Result := 'Cannot write ' + fn;
+      Result := 'Cannot write ' + target;
       Exit;
     end;
   except
