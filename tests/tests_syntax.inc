@@ -61,7 +61,7 @@ procedure TestSyntax;
 var
   st: Word;
   seed, i, j, k: Integer;
-  pieces: array[0..39] of string;
+  pieces: array[0..49] of string;
   line: string;
   lang: TLang;
   cls: TClsArray;
@@ -79,6 +79,15 @@ begin
   Check(LangFor('kitty.conf', '') = lnConf, 'LangFor .conf');
   Check(LangFor('.bashrc', '') = lnShell, 'LangFor .bashrc');
   Check(LangFor('README', '# hello') = lnNone, 'LangFor a # first line is not a shebang');
+  Check(LangFor('m.go', '') = lnGo, 'LangFor .go');
+  Check(LangFor('X.java', '') = lnJava, 'LangFor .java');
+  Check(LangFor('a.js', '') = lnJS, 'LangFor .js');
+  Check(LangFor('a.jsx', '') = lnJS, 'LangFor .jsx');
+  Check(LangFor('a.cs', '') = lnCSharp, 'LangFor .cs');
+  Check(LangFor('a.lua', '') = lnLua, 'LangFor .lua');
+  Check(LangFor('a.html', '') = lnHTML, 'LangFor .html');
+  Check(LangFor('a.md', '') = lnMarkdown, 'LangFor .md');
+  Check(LangFor('a.sql', '') = lnSQL, 'LangFor .sql');
 
   { Pascal }
   ShapeIs(lnPascal, 'begin x := ''don''''t'';', 'k5 .6 s8 .1');
@@ -171,6 +180,60 @@ begin
   ShapeIs(lnConf, 'enabled = yes', 'k7 .3 k3');
   ShapeIs(lnNone, 'begin end', '.9');
 
+  { Go }
+  ShapeIs(lnGo, 'func main() int', 'k4 .1 .4 .2 .1 t3');
+  ShapeIs(lnGo, '"a\"b"', 's6');
+  ShapeIs(lnGo, '''a''', 's3');
+  ShapeIs(lnGo, '`abc`', 's5');
+  TwoLines(lnGo, '`abc', 's4', 'def`', 's4', True);
+  ShapeIs(lnGo, 'x // c', '.1 .1 c4');
+  ShapeIs(lnGo, '/* a */ x', 'c7 .2');
+
+  { Java }
+  ShapeIs(lnJava, 'public class X', 'k6 .1 k5 .1 .1');
+  ShapeIs(lnJava, 'String s = "hi";', 't6 .1 .1 .1 .1 .1 s4 .1');
+  ShapeIs(lnJava, '// c', 'c4');
+  ShapeIs(lnJava, 'char c = ''\n'';', 't4 .1 .1 .1 .1 .1 s4 .1');
+
+  { JavaScript }
+  ShapeIs(lnJS, 'const x = 1;', 'k5 .1 .1 .1 .1 .1 n1 .1');
+  ShapeIs(lnJS, '`hi`', 's4');
+  TwoLines(lnJS, 'x = `abc', '.1 .1 .1 .1 s4', 'def` + y', 's4 .1 .1 .1 .1', True);
+
+  { C# }
+  ShapeIs(lnCSharp, 'int x = 5;', 't3 .1 .1 .1 .1 .1 n1 .1');
+  ShapeIs(lnCSharp, '@"a""b"', 's7');
+  ShapeIs(lnCSharp, '// c', 'c4');
+
+  { Lua }
+  ShapeIs(lnLua, 'local x = 5 -- c', 'k5 .1 .1 .1 .1 .1 n1 .1 c4');
+  ShapeIs(lnLua, '--[[ c ]] x', 'c9 .1 .1');
+  ShapeIs(lnLua, 'x = [[raw]] y', '.1 .1 .1 .1 s7 .1 .1');
+  ShapeIs(lnLua, '"hi"', 's4');
+
+  { SQL }
+  ShapeIs(lnSQL, 'SELECT * FROM t', 'k6 .1 .1 .1 k4 .1 .1');
+  ShapeIs(lnSQL, '''it''''s''', 's7');
+  ShapeIs(lnSQL, '-- c', 'c4');
+  ShapeIs(lnSQL, '/* a */ x', 'c7 .2');
+  ShapeIs(lnSQL, 'id INT', '.2 .1 t3');
+
+  { HTML }
+  ShapeIs(lnHTML, '<p>hi</p>', 'k3 .2 k4');
+  ShapeIs(lnHTML, '<a href="x">', 'k2 .1 t4 .1 s3 k1');
+  ShapeIs(lnHTML, '<br/>', 'k3 k2');
+  ShapeIs(lnHTML, '<!-- c -->x', 'c10 .1');
+
+  { Markdown }
+  ShapeIs(lnMarkdown, '# Title', 'k7');
+  ShapeIs(lnMarkdown, '**bold** x', 'k8 .2');
+  ShapeIs(lnMarkdown, '*em* x', 't4 .2');
+  ShapeIs(lnMarkdown, '`code` x', 's6 .2');
+  ShapeIs(lnMarkdown, '> quote', 'c1 .6');
+  ShapeIs(lnMarkdown, '[text](url) x', 'k7 s4 .2');
+  TwoLines(lnMarkdown, '```python', 'c9', 'code here', 'c9', False);
+  TwoLines(lnMarkdown, '```', 'c3', '```', 'c3', True);
+
   { the text is never touched and nothing can run off the end, whatever the line holds }
   pieces[0] := '{'; pieces[1] := '}'; pieces[2] := '(*'; pieces[3] := '*)'; pieces[4] := '/*';
   pieces[5] := '*/'; pieces[6] := '//'; pieces[7] := '"'; pieces[8] := ''''; pieces[9] := '\';
@@ -181,15 +244,18 @@ begin
   pieces[30] := 'include'; pieces[31] := 'r'; pieces[32] := 'br'; pieces[33] := #$EE#$83#$B0;
   pieces[34] := #$F0#$9F#$98#$80; pieces[35] := #$C3#$A9; pieces[36] := '1'; pieces[37] := '..';
   pieces[38] := '_t'; pieces[39] := #13;
+  pieces[40] := '`'; pieces[41] := '--'; pieces[42] := '--[['; pieces[43] := ']]';
+  pieces[44] := '<!--'; pieces[45] := '-->'; pieces[46] := '</'; pieces[47] := '```';
+  pieces[48] := '**'; pieces[49] := '@"';
   RandSeed := 20261123;
   k := 0;
-  for lang := lnPascal to lnConf do
+  for lang := lnPascal to lnSQL do
   begin
     st := 0;
     for i := 1 to 3000 do
     begin
       line := '';
-      for j := 1 to Random(8) do line := line + pieces[Random(40)];
+      for j := 1 to Random(8) do line := line + pieces[Random(50)];
       SetLength(cls, 0);
       st := HighlightLine(lang, U(line), st, cls);
       if Random(5) = 0 then st := 0;

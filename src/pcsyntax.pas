@@ -23,7 +23,8 @@ const
   HC_LAST = 6;
 
 type
-  TLang = (lnNone, lnPascal, lnC, lnRust, lnPython, lnShell, lnConf);
+  TLang = (lnNone, lnPascal, lnC, lnRust, lnPython, lnShell, lnConf, lnGo, lnJava, lnJS, lnCSharp,
+    lnLua, lnHTML, lnMarkdown, lnSQL);
   TClsArray = array of Byte;
 
 { the language for a file name; the first line is only looked at for a #! line }
@@ -67,6 +68,39 @@ const
     'break continue export local readonly declare unset shift set source alias eval exec trap true false ';
   TY_SHELL = ' echo printf cd pwd read test ls cat grep sed awk mkdir rm cp mv chmod chown sudo ';
   KW_CONF = ' true false yes no on off ';
+  KW_GO = ' break case chan const continue default defer else fallthrough for func go goto if import ' +
+    'interface map package range return select struct switch type var true false nil iota ';
+  TY_GO = ' bool byte complex64 complex128 error float32 float64 int int8 int16 int32 int64 rune string ' +
+    'uint uint8 uint16 uint32 uint64 uintptr any ';
+  KW_JAVA = ' abstract assert break case catch class const continue default do else enum extends final ' +
+    'finally for goto if implements import instanceof interface native new package private protected ' +
+    'public return static strictfp super switch synchronized this throw throws transient try void ' +
+    'volatile while var true false null ';
+  TY_JAVA = ' boolean byte char short int long float double String Object Integer Long Double Float ' +
+    'Boolean Character List Map Set ArrayList HashMap ';
+  KW_JS = ' async await break case catch class const continue debugger default delete do else export ' +
+    'extends finally for function get if import in instanceof let new of return set static super switch ' +
+    'this throw try typeof var void while with yield true false null undefined ';
+  TY_JS = ' Array Object String Number Boolean Function Symbol Map Set Promise console document window ' +
+    'undefined NaN Infinity ';
+  KW_CSHARP = ' abstract as async await base break case catch checked class const continue default ' +
+    'delegate do dynamic else enum event explicit extern finally fixed for foreach goto if implicit in ' +
+    'interface internal is lock namespace new null operator out override params private protected ' +
+    'public readonly ref return sealed sizeof stackalloc static struct switch this throw try typeof ' +
+    'unchecked unsafe using virtual void volatile while var true false ';
+  TY_CSHARP = ' bool byte sbyte char decimal double float int uint long ulong short ushort string ' +
+    'object void var dynamic List Dictionary IEnumerable Task String Int32 Int64 Boolean ';
+  KW_LUA = ' and break do else elseif end false for function goto if in local nil not or repeat return ' +
+    'then true until while ';
+  TY_LUA = ' string table math io os print pairs ipairs type tostring tonumber require pcall error ' +
+    'assert select setmetatable getmetatable ';
+  KW_SQL = ' select from where insert into update delete create table alter drop join on as and or not ' +
+    'null values set group by order having limit distinct union all index primary key foreign ' +
+    'references default constraint case when then else end exists in like between is desc asc inner ' +
+    'left right outer view trigger procedure function returns begin commit rollback transaction grant ' +
+    'revoke truncate ';
+  TY_SQL = ' int integer varchar text char nchar nvarchar date datetime timestamp boolean bool float ' +
+    'double decimal numeric blob serial bigint smallint tinyint real money uuid json ';
 
 function InList(const list, w: string): Boolean;
 begin
@@ -112,6 +146,14 @@ begin
      (ext = '.socket') or (ext = '.mount') or (ext = '.target') or (ext = '.desktop') or (ext = '.toml') or
      (ext = '.mk') or (nm = 'makefile') or (nm = 'gnumakefile') or (nm = 'sshd_config') or
      (nm = 'ssh_config') or (nm = 'fstab') or (nm = 'crontab') or (nm = '.gitconfig') then Exit(lnConf);
+  if ext = '.go' then Exit(lnGo);
+  if ext = '.java' then Exit(lnJava);
+  if (ext = '.js') or (ext = '.mjs') or (ext = '.cjs') or (ext = '.jsx') then Exit(lnJS);
+  if ext = '.cs' then Exit(lnCSharp);
+  if ext = '.lua' then Exit(lnLua);
+  if (ext = '.html') or (ext = '.htm') then Exit(lnHTML);
+  if (ext = '.md') or (ext = '.markdown') then Exit(lnMarkdown);
+  if ext = '.sql' then Exit(lnSQL);
   if (Length(firstLine) > 2) and (firstLine[1] = '#') and (firstLine[2] = '!') then
   begin
     if (Pos('python', string(firstLine)) > 0) then Exit(lnPython);
@@ -129,6 +171,14 @@ begin
     lnPython: Result := 'Python';
     lnShell: Result := 'Shell';
     lnConf: Result := 'Config';
+    lnGo: Result := 'Go';
+    lnJava: Result := 'Java';
+    lnJS: Result := 'JavaScript';
+    lnCSharp: Result := 'C#';
+    lnLua: Result := 'Lua';
+    lnHTML: Result := 'HTML';
+    lnMarkdown: Result := 'Markdown';
+    lnSQL: Result := 'SQL';
   else
     Result := '';
   end;
@@ -139,7 +189,7 @@ var
   n, i, j, k, q, lineStart, kind, extra, h, depth: Integer;
   c: WideChar;
   w: string;
-  hashLang, cLike: Boolean;
+  hashLang, cBlock: Boolean;
 
   function At(k: Integer): WideChar;
   begin
@@ -195,6 +245,23 @@ var
   begin
     if from > n then Exit(0);
     Result := PosEx(pat, s, from);
+  end;
+
+  { the closing quote at or after "from", where the quote escapes itself by doubling (SQL, C# @"..") }
+  function ScanDoubled(q: WideChar; from: Integer): Integer;
+  var
+    m: Integer;
+  begin
+    m := from;
+    while m <= n do
+    begin
+      if s[m] = q then
+      begin
+        if At(m + 1) = q then Inc(m, 2) else Exit(m);
+      end
+      else Inc(m);
+    end;
+    Result := 0;
   end;
 
   { a C-style block comment from i (just past the opener); nested for Rust.  Leaves i past it. }
@@ -277,7 +344,7 @@ begin
   kind := inState and 7;
   extra := inState shr 3;
   hashLang := lang in [lnPython, lnShell, lnConf];
-  cLike := lang in [lnC, lnRust];
+  cBlock := lang in [lnC, lnRust, lnGo, lnJava, lnJS, lnCSharp, lnSQL];
   lineStart := 1;
   while (lineStart <= n) and ((s[lineStart] = ' ') or (s[lineStart] = #9)) do Inc(lineStart);
   i := 1;
@@ -293,6 +360,23 @@ begin
           j := FindClose('}', 1);
           if j = 0 then begin Mark(1, n, HC_COMMENT); i := n + 1; end
           else begin Mark(1, j, HC_COMMENT); kind := 0; i := j + 1; end;
+        end
+        else if lang = lnHTML then
+        begin
+          j := FindClose('-->', 1);
+          if j = 0 then begin Mark(1, n, HC_COMMENT); i := n + 1; end
+          else begin Mark(1, j + 2, HC_COMMENT); kind := 0; i := j + 3; end;
+        end
+        else if lang = lnMarkdown then
+        begin
+          j := lineStart;
+          if Copy(s, j, 3) = '```' then
+          begin
+            Mark(j, j + 2, HC_COMMENT);
+            kind := 0;
+            i := j + 3;
+          end
+          else begin Mark(1, n, HC_COMMENT); i := n + 1; end;
         end
         else BlockComment(1, lang = lnRust);
       2:
@@ -335,6 +419,24 @@ begin
           if k = 0 then begin Mark(1, n, HC_STRING); i := n + 1; end
           else begin Mark(1, k, HC_STRING); kind := 0; i := k + 1; end;
         end;
+      5:
+        begin
+          if extra = 1 then j := ScanQuote('`', 1, True) else j := ScanQuote('`', 1, False);
+          if j = 0 then begin Mark(1, n, HC_STRING); i := n + 1; end
+          else begin Mark(1, j, HC_STRING); kind := 0; i := j + 1; end;
+        end;
+      6:
+        begin
+          j := FindClose(']]', 1);
+          if j = 0 then begin Mark(1, n, HC_COMMENT); i := n + 1; end
+          else begin Mark(1, j + 1, HC_COMMENT); kind := 0; i := j + 2; end;
+        end;
+      7:
+        begin
+          j := FindClose(']]', 1);
+          if j = 0 then begin Mark(1, n, HC_STRING); i := n + 1; end
+          else begin Mark(1, j + 1, HC_STRING); kind := 0; i := j + 2; end;
+        end;
     else
       kind := 0;
     end;
@@ -346,18 +448,45 @@ begin
     if (c = ' ') or (c = #9) then begin Inc(i); Continue; end;
 
     { ---- comments ---- }
-    if (lang in [lnPascal, lnC, lnRust]) and (c = '/') and (At(i + 1) = '/') then
+    if (lang in [lnPascal, lnC, lnRust, lnGo, lnJava, lnJS, lnCSharp]) and (c = '/') and (At(i + 1) = '/') then
     begin
       Mark(i, n, HC_COMMENT);
       i := n + 1;
       Break;
     end;
-    if cLike and (c = '/') and (At(i + 1) = '*') then
+    if cBlock and (c = '/') and (At(i + 1) = '*') then
     begin
       depth := 1;
       Mark(i, i + 1, HC_COMMENT);
       BlockComment(i + 2, lang = lnRust);
       Continue;
+    end;
+    if (lang = lnHTML) and (c = '<') and (At(i + 1) = '!') and (At(i + 2) = '-') and (At(i + 3) = '-') then
+    begin
+      j := FindClose('-->', i + 4);
+      if j = 0 then begin Mark(i, n, HC_COMMENT); kind := 1; i := n + 1; end
+      else begin Mark(i, j + 2, HC_COMMENT); i := j + 3; end;
+      Continue;
+    end;
+    if (lang in [lnLua, lnSQL]) and (c = '-') and (At(i + 1) = '-') then
+    begin
+      if (lang = lnLua) and (At(i + 2) = '[') and (At(i + 3) = '[') then
+      begin
+        j := FindClose(']]', i + 4);
+        if j = 0 then begin Mark(i, n, HC_COMMENT); kind := 6; i := n + 1; end
+        else begin Mark(i, j + 1, HC_COMMENT); i := j + 2; end;
+        Continue;
+      end;
+      Mark(i, n, HC_COMMENT);
+      i := n + 1;
+      Break;
+    end;
+    if (lang = lnMarkdown) and (i = lineStart) and (Copy(s, i, 3) = '```') then
+    begin
+      Mark(i, n, HC_COMMENT);
+      kind := 1;
+      i := n + 1;
+      Break;
     end;
     if lang = lnPascal then
     begin
@@ -470,6 +599,34 @@ begin
         Continue;
       end;
     end
+    else if (lang in [lnGo, lnJS]) and (c = '`') then
+    begin
+      if lang = lnJS then j := ScanQuote('`', i + 1, True) else j := ScanQuote('`', i + 1, False);
+      if j = 0 then
+      begin
+        Mark(i, n, HC_STRING);
+        kind := 5;
+        if lang = lnJS then extra := 1 else extra := 0;
+        i := n + 1;
+      end
+      else begin Mark(i, j, HC_STRING); i := j + 1; end;
+      Continue;
+    end
+    else if (lang = lnLua) and (c = '[') and (At(i + 1) = '[') then
+    begin
+      j := FindClose(']]', i + 2);
+      if j = 0 then begin Mark(i, n, HC_STRING); kind := 7; i := n + 1; end
+      else begin Mark(i, j + 1, HC_STRING); i := j + 2; end;
+      Continue;
+    end
+    else if (lang = lnCSharp) and (c = '@') and (At(i + 1) = '"') then
+    begin
+      j := ScanDoubled('"', i + 2);
+      if j = 0 then j := n;
+      Mark(i, j, HC_STRING);
+      i := j + 1;
+      Continue;
+    end
     else if (c = '"') or (c = '''') then
     begin
       if lang = lnRust then
@@ -541,6 +698,22 @@ begin
         i := j + 1;
         Continue;
       end;
+      if lang in [lnGo, lnJava, lnJS, lnCSharp, lnLua] then
+      begin
+        j := ScanQuote(c, i + 1, True);
+        if j = 0 then j := n;
+        Mark(i, j, HC_STRING);
+        i := j + 1;
+        Continue;
+      end;
+      if lang = lnSQL then
+      begin
+        j := ScanDoubled(c, i + 1);
+        if j = 0 then j := n;
+        Mark(i, j, HC_STRING);
+        i := j + 1;
+        Continue;
+      end;
       { shell and config files: only a quote that opens a word and has its partner on this line }
       if (i = 1) or not IsWordChar(s[i - 1]) then
       begin
@@ -585,8 +758,110 @@ begin
       Continue;
     end;
 
+    { ---- HTML tags ---- }
+    if (lang = lnHTML) and (c = '<') then
+    begin
+      j := i + 1;
+      if At(j) = '/' then Inc(j);
+      if IsWordStart(At(j)) then
+      begin
+        k := j;
+        while IsWordChar(At(k)) or (At(k) = '-') do Inc(k);
+        Mark(i, k - 1, HC_KEYWORD);
+        i := k;
+        while (i <= n) and (At(i) <> '>') and not ((At(i) = '/') and (At(i + 1) = '>')) do
+        begin
+          while (At(i) = ' ') or (At(i) = #9) do Inc(i);
+          if (At(i) = '>') or ((At(i) = '/') and (At(i + 1) = '>')) or (i > n) then Break;
+          if IsWordStart(At(i)) then
+          begin
+            k := i;
+            while IsWordChar(At(k)) or (At(k) = '-') do Inc(k);
+            Mark(i, k - 1, HC_TYPE);
+            i := k;
+            while (At(i) = ' ') or (At(i) = #9) do Inc(i);
+            if At(i) = '=' then
+            begin
+              Inc(i);
+              while (At(i) = ' ') or (At(i) = #9) do Inc(i);
+              if (At(i) = '"') or (At(i) = '''') then
+              begin
+                k := ScanQuote(At(i), i + 1, False);
+                if k = 0 then k := n;
+                Mark(i, k, HC_STRING);
+                i := k + 1;
+              end
+              else while IsWordChar(At(i)) do Inc(i);
+            end;
+          end
+          else Inc(i);
+        end;
+        if (At(i) = '/') and (At(i + 1) = '>') then begin Mark(i, i + 1, HC_KEYWORD); Inc(i, 2); end
+        else if At(i) = '>' then begin Mark(i, i, HC_KEYWORD); Inc(i); end;
+        Continue;
+      end;
+    end;
+
+    { ---- Markdown inline ---- }
+    if lang = lnMarkdown then
+    begin
+      if (i = lineStart) and (c = '#') then
+      begin
+        j := i;
+        while At(j) = '#' do Inc(j);
+        if (j - i <= 6) and ((At(j) = ' ') or (At(j) = #9) or (j > n)) then
+        begin
+          Mark(i, n, HC_KEYWORD);
+          i := n + 1;
+          Break;
+        end;
+      end;
+      if (i = lineStart) and (c = '>') then
+      begin
+        Mark(i, i, HC_COMMENT);
+        Inc(i);
+        Continue;
+      end;
+      if c = '`' then
+      begin
+        j := FindClose('`', i + 1);
+        if j = 0 then j := n;
+        Mark(i, j, HC_STRING);
+        i := j + 1;
+        Continue;
+      end;
+      if ((c = '*') and (At(i + 1) = '*')) or ((c = '_') and (At(i + 1) = '_')) then
+      begin
+        j := FindClose(UnicodeString(c) + UnicodeString(c), i + 2);
+        if j > 0 then begin Mark(i, j + 1, HC_KEYWORD); i := j + 2; end
+        else Inc(i, 2);
+        Continue;
+      end;
+      if (c = '*') or (c = '_') then
+      begin
+        j := ScanQuote(c, i + 1, False);
+        if j > 0 then begin Mark(i, j, HC_TYPE); i := j + 1; end
+        else Inc(i);
+        Continue;
+      end;
+      if c = '[' then
+      begin
+        j := FindClose(']', i + 1);
+        if (j > 0) and (At(j + 1) = '(') then
+        begin
+          k := FindClose(')', j + 2);
+          if k = 0 then k := n;
+          Mark(i, j + 1, HC_KEYWORD);
+          Mark(j + 2, k, HC_STRING);
+          i := k + 1;
+          Continue;
+        end;
+      end;
+    end;
+
     { ---- numbers ---- }
-    if IsDigit(c) or ((lang = lnPascal) and (c = '$') and IsHex(At(i + 1))) then
+    if (IsDigit(c) or ((lang = lnPascal) and (c = '$') and IsHex(At(i + 1)))) and
+       not (lang in [lnHTML, lnMarkdown]) then
     begin
       Number;
       Continue;
@@ -676,6 +951,42 @@ begin
           end;
         lnConf:
           if AsciiWord(s, i, j - 1, True, w) and InList(KW_CONF, w) then Mark(i, j - 1, HC_KEYWORD);
+        lnGo:
+          if AsciiWord(s, i, j - 1, False, w) then
+          begin
+            if InList(KW_GO, w) then Mark(i, j - 1, HC_KEYWORD)
+            else if InList(TY_GO, w) then Mark(i, j - 1, HC_TYPE);
+          end;
+        lnJava:
+          if AsciiWord(s, i, j - 1, False, w) then
+          begin
+            if InList(KW_JAVA, w) then Mark(i, j - 1, HC_KEYWORD)
+            else if InList(TY_JAVA, w) then Mark(i, j - 1, HC_TYPE);
+          end;
+        lnJS:
+          if AsciiWord(s, i, j - 1, False, w) then
+          begin
+            if InList(KW_JS, w) then Mark(i, j - 1, HC_KEYWORD)
+            else if InList(TY_JS, w) then Mark(i, j - 1, HC_TYPE);
+          end;
+        lnCSharp:
+          if AsciiWord(s, i, j - 1, False, w) then
+          begin
+            if InList(KW_CSHARP, w) then Mark(i, j - 1, HC_KEYWORD)
+            else if InList(TY_CSHARP, w) then Mark(i, j - 1, HC_TYPE);
+          end;
+        lnLua:
+          if AsciiWord(s, i, j - 1, False, w) then
+          begin
+            if InList(KW_LUA, w) then Mark(i, j - 1, HC_KEYWORD)
+            else if InList(TY_LUA, w) then Mark(i, j - 1, HC_TYPE);
+          end;
+        lnSQL:
+          if AsciiWord(s, i, j - 1, True, w) then
+          begin
+            if InList(KW_SQL, w) then Mark(i, j - 1, HC_KEYWORD)
+            else if InList(TY_SQL, w) then Mark(i, j - 1, HC_TYPE);
+          end;
       end;
       i := j;
       Continue;
