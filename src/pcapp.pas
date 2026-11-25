@@ -125,6 +125,7 @@ type
     HelpText: TStringList;
     HelpTop, HelpWrapW: Integer;
     HelpLines: TStringList;
+    HelpFilter: UnicodeString;           { what has been typed on the help screen }
     MenuKind, MenuSel: Integer;
     MenuTitle: string;
     MenuNames, MenuVals: array of string;

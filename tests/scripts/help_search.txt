@@ -1,0 +1,22 @@
+size 900 600
+text before
+key f1
+text tab
+shot build/test-out/help_tab.png
+key backspace
+key backspace
+key backspace
+text zzzz
+shot build/test-out/help_none.png
+key escape
+shot build/test-out/help_cleared.png
+text colour
+text  syntax
+key pagedown
+key end
+shot build/test-out/help_two.png
+key escape
+key escape
+text  and after
+dump build/test-out/help_search.txt
+quit

@@ -68,7 +68,7 @@ tiepaper --pdf in out.pdf         format a document to PDF, no window
 tiepaper --text in out.txt        format to plain text, no window
 ```
 
-Press **F1** for the built-in key reference, or read [docs/keys.md](docs/keys.md) and
+Press **F1** for the built-in key reference (type to search it), or read [docs/keys.md](docs/keys.md) and
 [docs/format-lines.md](docs/format-lines.md).
 
 A first document:

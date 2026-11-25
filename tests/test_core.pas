@@ -578,6 +578,42 @@ begin
   f.Free;
 end;
 
+procedure TestHelpFilter;
+var
+  src, dst: TStringList;
+
+  function Run(const q: string): string;
+  var
+    i: Integer;
+  begin
+    FilterHelp(src, dst, q);
+    Result := '';
+    for i := 0 to dst.Count - 1 do Result := Result + dst[i] + ';';
+  end;
+
+begin
+  src := TStringList.Create;
+  dst := TStringList.Create;
+  src.Add('#Editing');
+  src.Add('Ctrl+Z|Undo');
+  src.Add('Ctrl+I|Insert many lines');
+  src.Add('');
+  src.Add('#Files');
+  src.Add('Ctrl+S|Save the file');
+  src.Add('A paragraph about backups.');
+  CheckEq(Run('undo'), '#Editing;Ctrl+Z|Undo;', 'help filter: one entry with its heading');
+  CheckEq(Run('UNDO'), '#Editing;Ctrl+Z|Undo;', 'help filter ignores case');
+  CheckEq(Run('ctrl+s'), '#Files;Ctrl+S|Save the file;', 'help filter matches the key');
+  CheckEq(Run('ctrl'), '#Editing;Ctrl+Z|Undo;Ctrl+I|Insert many lines;;#Files;Ctrl+S|Save the file;',
+    'help filter: two sections with a gap');
+  CheckEq(Run('files'), '#Files;Ctrl+S|Save the file;A paragraph about backups.;', 'help filter: a heading keeps its section');
+  CheckEq(Run('files  backups'), '#Files;A paragraph about backups.;', 'help filter: every word must match');
+  CheckEq(Run('undo save'), '', 'help filter: words in different entries do not match');
+  CheckEq(Run('zzzz'), '', 'help filter: nothing');
+  src.Free;
+  dst.Free;
+end;
+
 {$I tests_dirs.inc}
 {$I tests_syntax.inc}
 
@@ -750,6 +786,7 @@ begin
   TestDirs;
   TestPlain;
   TestSyntax;
+  TestHelpFilter;
   WriteLn(Passes, ' passed, ', Fails, ' failed');
   if Fails > 0 then Halt(1);
 end.

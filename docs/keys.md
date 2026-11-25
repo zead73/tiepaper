@@ -176,7 +176,7 @@ your system; set another in File Options (F4), e.g. `en_CA` on Linux or `en-CA` 
 | Ctrl+O | Output: PDF, plain text, or the printer |
 | Ctrl+Shift+O | Print everything now with the defaults (asks first) |
 | F2 / F4 | Screen options / file options menus |
-| F1 | Help |
+| F1 | Help; type to search it (Backspace edits, Esc clears, Esc again closes) |
 
 A PaperClip document saved under a name that does not end in `.pcl` is written as plain text (tabs and
 line length are not kept); a `.pcl` name keeps them in a one-line header.

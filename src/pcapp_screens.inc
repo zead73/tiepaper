@@ -312,6 +312,7 @@ procedure TApp.WrapHelp(width: Integer);
 var
   i, p, keyW, descCol, avail: Integer;
   s, key, rest: string;
+  src: TStringList;
 begin
   if HelpLines = nil then HelpLines := TStringList.Create;
   HelpLines.Clear;
@@ -325,9 +326,17 @@ begin
   if keyW > HelpKeyMax then keyW := HelpKeyMax;
   descCol := 2 + keyW + 2;           { where descriptions start, counted from the left margin }
   avail := width - descCol;
-  for i := 0 to HelpText.Count - 1 do
+  { the key column is sized from the whole help, so it does not jump about while a search is typed }
+  src := TStringList.Create;
+  if HelpFilter = '' then src.Assign(HelpText)
+  else
   begin
-    s := HelpText[i];
+    FilterHelp(HelpText, src, UTF8Encode(HelpFilter));
+    if src.Count = 0 then src.Add('Nothing in the help mentions that.  Backspace edits the search, Esc clears it.');
+  end;
+  for i := 0 to src.Count - 1 do
+  begin
+    s := src[i];
     p := Pos('|', s);
     if s = '' then
       HelpLines.Add('T')
@@ -355,6 +364,7 @@ begin
       while rest <> '' do HelpLines.Add('T  ' + HelpBreak(rest, width - 2));
     end;
   end;
+  src.Free;
 end;
 
 procedure TApp.DrawHelp;
@@ -371,7 +381,13 @@ begin
   headC := RGBOf(Cfg.ColDirective);
   Gfx.FillCells(0, 0, Gfx.Cols, 1, textC);
   Gfx.PutText(0, 0, ' TiePaper help', backC, ST_BOLD);
-  Gfx.PutText(1, 1, 'Arrows/PgUp/PgDn scroll   Esc closes', dimC);
+  if HelpFilter = '' then
+    Gfx.PutText(1, 1, 'Type to search   Arrows/PgUp/PgDn scroll   Esc closes', dimC)
+  else
+  begin
+    Gfx.PutText(1, 1, 'Search: ' + HelpFilter + '_', headC, ST_BOLD);
+    Gfx.PutText(12 + Length(HelpFilter), 1, 'Backspace edits   Esc clears', dimC);
+  end;
   rows := Gfx.Rows - 4;
   for i := 0 to rows - 1 do
   begin
@@ -391,13 +407,16 @@ begin
       Gfx.PutText(1, 3 + i, UTF8Decode(Copy(s, 2, MaxInt)), textC);
     end;
   end;
-  Gfx.PutText(1, Gfx.Rows - 1, UnicodeString(Format('%d%%', [(HelpTop + rows) * 100 div (HelpLines.Count + 1)])), dimC);
+  k := (HelpTop + rows) * 100 div (HelpLines.Count + 1);
+  if k > 100 then k := 100;            { a short search result does not fill the screen }
+  Gfx.PutText(1, Gfx.Rows - 1, UnicodeString(Format('%d%%', [k])), dimC);
 end;
 
 procedure BuildHelp(t: TStringList);
 begin
   t.Clear;
   t.Add('#TiePaper works like PaperClip II');
+  t.Add('To search this help, just type: only the entries that mention every word you typed stay.  Backspace edits the search, Esc clears it, and Esc again closes the help.');
   t.Add('(For editing config files and source code, see "Plain text mode" below.)');
   t.Add('You type plain text and add formatting instructions to it.  The screen shows exactly what you type.  A left arrow marks the end of each paragraph (the "return marker").');
   t.Add('Formatting instructions go on their own lines that start with a checkmark: type a backslash (\) to make it.  Preview with Ctrl+V, output with Ctrl+O.');
@@ -572,6 +591,8 @@ begin
     BuildHelp(HelpText);
   end;
   HelpTop := 0;
+  HelpFilter := '';
+  HelpWrapW := -1;
   FullScreen := @DrawHelp;
   try
     while WaitKey(ev) do
@@ -579,16 +600,45 @@ begin
       rows := Gfx.Rows - 4;
       if (HelpLines = nil) or (HelpWrapW <> Gfx.Cols - 2) then WrapHelp(Gfx.Cols - 2);
       if ev.Kind = ekWheel then HelpTop := HelpTop - ev.Wheel * 3
+      else if ev.Kind = ekText then
+      begin
+        { typing narrows the help to what mentions it }
+        if (Length(HelpFilter) < 40) and ((HelpFilter <> '') or (Trim(ev.Text) <> '')) then
+        begin
+          HelpFilter := HelpFilter + ev.Text;
+          HelpWrapW := -1;
+          HelpTop := 0;
+        end;
+      end
       else if ev.Kind = ekKey then
         case ev.Sym of
-          SDLK_ESCAPE, SDLK_F1: Break;
+          SDLK_ESCAPE:
+            if HelpFilter = '' then Break
+            else
+            begin
+              HelpFilter := '';
+              HelpWrapW := -1;
+              HelpTop := 0;
+            end;
+          SDLK_F1: Break;
+          SDLK_BACKSPACE:
+            if HelpFilter <> '' then
+            begin
+              { a character outside the BMP is two cells: take both }
+              if (Length(HelpFilter) > 1) and (HelpFilter[Length(HelpFilter)] >= #$DC00) and
+                 (HelpFilter[Length(HelpFilter)] <= #$DFFF) then Delete(HelpFilter, Length(HelpFilter) - 1, 2)
+              else Delete(HelpFilter, Length(HelpFilter), 1);
+              HelpWrapW := -1;
+              HelpTop := 0;
+            end;
           SDLK_UP: Dec(HelpTop);
           SDLK_DOWN: Inc(HelpTop);
           SDLK_PAGEUP: Dec(HelpTop, rows - 1);
-          SDLK_PAGEDOWN, SDLK_SPACE: Inc(HelpTop, rows - 1);
+          SDLK_PAGEDOWN: Inc(HelpTop, rows - 1);
           SDLK_HOME: HelpTop := 0;
           SDLK_END: HelpTop := HelpLines.Count;
         end;
+      if HelpWrapW <> Gfx.Cols - 2 then WrapHelp(Gfx.Cols - 2);
       if HelpTop > HelpLines.Count - rows then HelpTop := HelpLines.Count - rows;
       if HelpTop < 0 then HelpTop := 0;
     end;

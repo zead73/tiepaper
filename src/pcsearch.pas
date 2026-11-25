@@ -15,7 +15,7 @@ unit pcsearch;
 interface
 
 uses
-  SysUtils, Character;
+  SysUtils, Classes, Character;
 
 type
   TPatKind = (pkChar, pkAny, pkAlpha, pkWordStart, pkWordEnd);
@@ -25,6 +25,11 @@ type
     Exact: Boolean;
   end;
   TPattern = array of TPatItem;
+
+{ The help filter: the lines of src that mention every word of query (any case), each under its section
+  heading.  A heading's words count for the lines below it.  src holds '#Heading', 'keys|text', plain
+  paragraphs and empty lines; dest gets the same kinds. }
+procedure FilterHelp(src, dest: TStrings; const query: string);
 
 function CompilePattern(const s: UnicodeString): TPattern;
 { Finds the first match at or after position start (0-based) in text.  pos/len are 0-based. }
@@ -128,6 +133,49 @@ begin
       pos := i;
       Exit(True);
     end;
+end;
+
+procedure FilterHelp(src, dest: TStrings; const query: string);
+var
+  words: TStringList;
+  i, k: Integer;
+  line, head, hay: string;
+  headShown, all: Boolean;
+begin
+  dest.Clear;
+  words := TStringList.Create;
+  try
+    words.Delimiter := ' ';
+    words.StrictDelimiter := True;
+    words.DelimitedText := LowerCase(query);
+    head := '';
+    headShown := False;
+    for i := 0 to src.Count - 1 do
+    begin
+      line := src[i];
+      if line = '' then Continue;
+      if line[1] = '#' then
+      begin
+        head := line;
+        headShown := False;
+        Continue;
+      end;
+      hay := LowerCase(Copy(head, 2, MaxInt) + ' ' + StringReplace(line, '|', ' ', []));
+      all := True;
+      for k := 0 to words.Count - 1 do
+        if (words[k] <> '') and (Pos(words[k], hay) = 0) then all := False;
+      if not all then Continue;
+      if (not headShown) and (head <> '') then
+      begin
+        if dest.Count > 0 then dest.Add('');
+        dest.Add(head);
+        headShown := True;
+      end;
+      dest.Add(line);
+    end;
+  finally
+    words.Free;
+  end;
 end;
 
 end.
