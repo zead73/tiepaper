@@ -39,7 +39,9 @@ keyboard-driven and good with tables.
 - Undo/redo, system clipboard (Alt+C / Alt+X / Alt+V), mouse positioning and wheel
 - A **file picker** for Load, Save, Append, Range Save and Output (Far-style, shared with TieSheet): type to jump or to enter a path, Tab changes the filter, F2 lists places and drives, F7 makes a folder
 - A **plain text mode** for config files and source code: any file not named `.pcl` is opened and saved byte for byte (line endings, final newline, UTF-8 / BOM / Latin-1, tabs, backslashes; no header), keeping its permissions and symlinks. Ctrl+Shift+T switches a document between plain text and PaperClip mode
-- **Syntax colouring** in plain text mode, chosen by the file name: Pascal, C/C++, Rust, Python, shell scripts and config files (`.conf`, `.ini`, `fstab`, ...). The text is never changed; Ctrl+Shift+G turns it off. The colours are the `syntax_*` entries under `[colors]` in `tiepaper.ini`
+- **Syntax colouring** in plain text mode, chosen by the file name: Pascal, C and C++, Rust, Python, Go, Java, JavaScript, C#, Lua, shell scripts, SQL, HTML, Markdown and config files (`.conf`, `.ini`, `.service`, `fstab`, `Makefile`, ...). The text is never changed. Ctrl+Shift+G turns it off, Ctrl+Shift+P steps through the languages by hand for a file whose name does not pick one, and the colours are the `syntax_*` entries under `[colors]` in `tiepaper.ini`
+- In plain text mode **tabs line up** at the tab width (`tabwidth` under `[editing]`, default 4; word wrap still counts characters, so turn it off with F7 for tab-aligned files), and Return **keeps the indent** of the line above (`autoindent=0` turns that off)
+- **Searchable help**: press F1 and type, and only the entries that mention every word stay
 - Asks before discarding changes; saves through a temporary file and keeps a `.bak`
 
 ## Not included

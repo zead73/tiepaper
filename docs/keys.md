@@ -31,6 +31,7 @@ letters below mean **Ctrl+Shift**.
 | Ctrl+Shift+L | Line length for this document (0 = fit the window) |
 | Ctrl+Shift+T | Plain text mode / PaperClip mode for this document (new): every file not named `.pcl` opens as plain text and is saved byte for byte |
 | Ctrl+Shift+G | Syntax colouring on / off (plain text mode; the file name picks the language) |
+| Ctrl+Shift+P | Step through the colouring languages by hand (plain text mode) |
 | Return | In plain text mode: the new line keeps the indent of the one above (`autoindent` in `[editing]` of tiepaper.ini, default on) |
 | Tab / Ctrl+Tab | In plain text mode: spaces to the next multiple of the tab width (`tabwidth` in `[editing]` of tiepaper.ini, default 4) / a real tab character |
 | Ctrl+Shift+X | Quit |
